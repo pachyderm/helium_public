@@ -23,7 +23,7 @@ type Spec struct {
 	AuthEnabled      bool
 	InfraYAML        string
 	ValuesYAML       string
-	SeedDataTarget   string // TODO: remove before deploy
+	//	SeedDataTarget   string // TODO: remove before deploy
 	// ForceNew         bool // Don't use a prewarm
 }
 

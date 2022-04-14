@@ -19,9 +19,9 @@ func (r *Runner) List() ([]api.ID, error) {
 	return nil, nil
 }
 
-func (r *Runner) IsExpired(i api.ID) (bool, error) {
-	return false, nil
-}
+//func (r *Runner) IsExpired(i api.ID) (bool, error) {
+//	return false, nil
+//}
 
 func (r *Runner) Destroy(i api.ID) error {
 	return nil
