@@ -1,6 +1,7 @@
-package runner
+package backend
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -8,27 +9,27 @@ import (
 	"github.com/pachyderm/helium/api"
 )
 
-func Test(t *testing.T) {
-	testData := []struct {
-		name string
-		//  simpleTestRunner TestBackendRunner
-		//  want
-
-	}{
-		{
-			"hello",
-		},
-		{
-			"goodbye",
-		},
-	}
-
-	for _, z := range testData {
-		t.Run(z.name, func(t *testing.T) {
-
-		})
-	}
-}
+//func Test(t *testing.T) {
+//	testData := []struct {
+//		name string
+//		//  simpleTestRunner TestBackendRunner
+//		//  want
+//
+//	}{
+//		{
+//			"hello",
+//		},
+//		{
+//			"goodbye",
+//		},
+//	}
+//
+//	for _, z := range testData {
+//		t.Run(z.name, func(t *testing.T) {
+//
+//		})
+//	}
+//}
 
 //
 func TestDeletionControllerLoop(t *testing.T) {
@@ -38,38 +39,32 @@ func TestDeletionControllerLoop(t *testing.T) {
 	got := &TestBackendRunner{
 		ResourceIDs: []api.ID{"A", "B", "C", "D"},
 	}
-	DeletionControllerLoop(got)
+	err := DeletionController(got)
+	if err != nil {
+		t.Errorf("error: %v", err)
+	}
 	if !cmp.Equal(got, want) {
-		t.Errorf(fmt.Sprintf("diff: %v", cmp.Diff(got, want)))
+		t.Errorf(fmt.Sprintf("diff: %v", cmp.Diff(want, got)))
 	}
 }
 
-func TestPrewarmInfraLoop(t *testing.T) {
-	want := &TestBackendRunner{
-		ResourceIDs: []api.ID{"A", "B", "C", "D", "E"},
-	}
-	got := &TestBackendRunner{
-		ResourceIDs: []api.ID{"A", "B", "C", "D"},
-	}
-	PrewarmInfraLoop(got)
-	if !cmp.Equal(got, want) {
-		t.Errorf(fmt.Sprintf("diff: %v", cmp.Diff(got, want)))
-	}
-}
-
-func TestPrewarmWorkspaceLoop(t *testing.T) {
+func TestPrewarm(t *testing.T) {
 	want := &TestBackendRunner{
 		ResourceIDs: []api.ID{"A", "B", "C", "D", "F"},
 	}
 	got := &TestBackendRunner{
 		ResourceIDs: []api.ID{"A", "B", "C", "D"},
 	}
-	PrewarmWorkspaceLoop(got)
+	err := PrewarmController(got)
+	if err != nil {
+		t.Errorf("error: %v", err)
+	}
 	if !cmp.Equal(got, want) {
 		t.Errorf(fmt.Sprintf("diff: %v", cmp.Diff(got, want)))
 	}
 }
 
+//
 type TestBackendRunner struct {
 	ResourceIDs []api.ID
 }
@@ -102,25 +97,13 @@ func (r *TestBackendRunner) Destroy(i api.ID) error {
 	return nil
 }
 
-func (r *TestBackendRunner) ProvisionInfra() (api.ID, error) {
-	r.ResourceIDs = append(r.ResourceIDs, "E")
-	return "E", nil
-}
-
-func (r *TestBackendRunner) ProvisionWorkspace() (api.ID, error) {
+func (r *TestBackendRunner) ProvisionPrewarm() (api.ID, error) {
 	r.ResourceIDs = append(r.ResourceIDs, "F")
 	return "F", nil
 }
 
-func (r *TestBackendRunner) IsPrewarmInfra(i api.ID) (bool, error) {
-	if i == "A" || i == "E" {
-		return true, nil
-	}
-	return false, nil
-}
-
 // Does this need an ID as a param?
-func (r *TestBackendRunner) IsPrewarmWorkspace(i api.ID) (bool, error) {
+func (r *TestBackendRunner) IsPrewarm(i api.ID) (bool, error) {
 	if i == "B" || i == "F" {
 		return true, nil
 	}
@@ -131,18 +114,18 @@ func (r *TestBackendRunner) Create(api.CreateRequest) (api.CreateResponse, error
 	return api.CreateResponse{}, nil
 }
 
-func (r *TestBackendRunner) RestoreSeedData(bucket string) error {
-	return nil
-}
-func (r *TestBackendRunner) Register() *api.Backend {
-	return nil
-}
-
 //
-func (r *TestBackendRunner) Controller() []ControlLoops {
-	return []ControlLoops{
-		PrewarmWorkspaceLoop,
-		PrewarmInfraLoop,
-		DeletionControllerLoop,
+func (r *TestBackendRunner) Controller() []Controller {
+	return []Controller{
+		r.PrewarmController,
+		r.DeletionController,
 	}
 }
+
+func (r *TestBackendRunner) PrewarmController(ctx context.Context) error {
+	return RunPrewarmController(ctx, r)
+} //TODO ctx
+
+func (r *TestBackendRunner) DeletionController(ctx context.Context) error {
+	return RunDeletionController(ctx, r)
+} //TODO ctx

@@ -16,7 +16,7 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 
 	"github.com/pachyderm/helium/api"
-	"github.com/pachyderm/helium/runner"
+	"github.com/pachyderm/helium/backend"
 	"github.com/pachyderm/helium/util"
 )
 
@@ -26,44 +26,27 @@ func testing() {
 }
 
 func init() {
-	ctx := context.Background()
-	w, err := auto.NewLocalWorkspace(ctx)
-	if err != nil {
-		fmt.Printf("Failed to setup and run http server: %v\n", err)
-		os.Exit(1)
-	}
-	err = w.InstallPlugin(ctx, "gcp", "v6.5.0")
-	if err != nil {
-		fmt.Printf("Failed to install program plugins: %v\n", err)
-		os.Exit(1)
-	}
-	err = w.InstallPlugin(ctx, "kubernetes", "v3.12.1")
-	if err != nil {
-		fmt.Printf("Failed to install program plugins: %v\n", err)
-		os.Exit(1)
-	}
+	ensurePlugins()
 }
 
-const StackNamePrefix = "sean-testing"
+//
+const (
+	BackendName     = "gcp-namespace-pulumi"
+	StackNamePrefix = "sean-testing"
+)
 
 var project = "pulumi_over_http"
 
 type Runner struct {
+	Name backend.Name
 }
 
-func (r *Runner) Get(i api.ID) (string, error) {
-	return "", nil
+func (r *Runner) GetConnectionInfo(i api.ID) (api.ConnectionInfo, error) {
+	return api.ConnectionInfo{}, nil
 }
 
 func (r *Runner) List() ([]api.ID, error) {
 	return nil, nil
-}
-
-func (r *Runner) IsPrewarmInfra(i api.ID) (bool, error) {
-	return false, nil
-}
-func (r *Runner) IsPrewarmWorkspace(i api.ID) (bool, error) {
-	return false, nil
 }
 
 func (r *Runner) IsExpired(i api.ID) (bool, error) {
@@ -72,15 +55,6 @@ func (r *Runner) IsExpired(i api.ID) (bool, error) {
 
 func (r *Runner) Destroy(i api.ID) error {
 	return nil
-}
-
-func (r *Runner) ProvisionInfra() (api.ID, error) {
-	return "", nil
-}
-
-// Does this need an ID as a param?
-func (r *Runner) ProvisionWorkspace() (api.ID, error) {
-	return "", nil
 }
 
 func (r *Runner) Create(req api.CreateRequest) (api.CreateResponse, error) {
@@ -117,24 +91,25 @@ func (r *Runner) Create(req api.CreateRequest) (api.CreateResponse, error) {
 	return api.CreateResponse{api.ID(stackName)}, nil
 }
 
-func (r *Runner) RestoreSeedData(bucket string) error {
-	return nil
+func (r *Runner) Register() *api.CreateRequest {
+	return &api.CreateRequest{Backend: BackendName}
 }
 
-func (r *Runner) Register() *api.Backend {
-	return &api.Backend{"gcp", "namespace", "pulumi"}
-}
+// func New() []backend.Controller { //[]Somethings
+// 	r.Name = BackendName
+// 	return []backend.Controller{
+// 		r.DeletionController,
+// 	}
+// }
 
-func (r *Runner) Setup() {
-	ensurePlugins()
-}
-
-func (r *Runner) Controller() []runner.ControlLoops {
-	return []runner.ControlLoops{
-		runner.PrewarmWorkspaceLoop,
-		runner.PrewarmInfraLoop,
-		runner.DeletionControllerLoop,
+func (r *Runner) Controller(ctx context.Context) []backend.Controller {
+	return []backend.Controller{
+		r.DeletionController,
 	}
+}
+
+func (r *Runner) DeletionController(ctx context.Context) error {
+	return backend.RunDeletionController(ctx, r)
 }
 
 func createPulumiProgram(id string) pulumi.RunFunc {

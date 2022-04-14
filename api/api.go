@@ -6,7 +6,7 @@ type ID string
 
 type CreateRequest struct {
 	Version string
-	Kind    string
+	Backend string
 	Spec    Spec
 }
 
@@ -15,7 +15,7 @@ type CreateResponse struct {
 }
 
 type Spec struct {
-	Backend          Backend
+	//	Backend          Backend
 	Expiry           time.Time
 	PachdVersion     string
 	ConsoleVersion   string
@@ -28,11 +28,11 @@ type Spec struct {
 }
 
 // TODO: Should backend be where flavors of auth are supported? Is it implementation dependent?
-type Backend struct {
-	Target   string
-	Type     string
-	Provider string
-}
+//type Backend struct {
+//	Target   string
+//	Type     string
+//	Provider string
+//}
 
 type GetRequest struct {
 	ID ID

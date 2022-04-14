@@ -1,6 +1,7 @@
-package runner
+package backend
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/pachyderm/helium/api"
@@ -11,35 +12,64 @@ const (
 	WorkspacePrewarmCount = 2
 )
 
-type ControlLoops func(BackendRunner) error
+type Name string
 
-type BackendRunner interface {
-	Get(api.ID) (string, error)
+type Controller func(context.Context) error
+
+type Lister interface {
 	List() ([]api.ID, error)
-	// Does pulumi support labels there?
-	IsPrewarmInfra(api.ID) (bool, error)
-	IsPrewarmWorkspace(api.ID) (bool, error)
-	// Does a comparison of expiry vs current time and returns if it's expired or not
-	IsExpired(api.ID) (bool, error)
+}
+type GetConnInfoer interface {
+	GetConnectionInfo(api.ID) (api.ConnectionInfo, error)
+}
+type Destroyer interface {
 	Destroy(api.ID) error
-
-	// ProvisionInfra should create an ID - attach as an annotation or label where appropriate
-	ProvisionInfra() (api.ID, error)
-	// What sorts of data needs to be passed into ProvisionWorkspace vs ProvisionInfra?
-	// Does downscoping help at all? Optionally pass through the create request? Where should validation happen?
-	ProvisionWorkspace() (api.ID, error)
-
+}
+type Creator interface {
 	Create(api.CreateRequest) (api.CreateResponse, error)
-
-	RestoreSeedData(string) error
-
-	Register() *api.Backend
-
-	Controller() []ControlLoops
 }
 
+type Backend interface {
+	Lister
+	GetConnInfoer
+	Creator
+	Destroyer
+	Register() *api.CreateRequest
+	Controller(context.Context) []Controller
+}
+
+// Register() *api.Backend
+//	RestoreSeedData(string) error
+
+type IsExpirer interface {
+	IsExpired(api.ID) (bool, error)
+}
+
+type DeletionController interface {
+	Lister
+	IsExpirer
+	Destroyer
+	//	DeletionController()
+}
+type IsPrewarmer interface {
+	IsPrewarm(api.ID) (bool, error)
+}
+
+type PrewarmProvisioner interface {
+	ProvisionPrewarm() (api.ID, error)
+}
+type PrewarmController interface {
+	Lister
+	IsPrewarmer
+	PrewarmProvisioner
+	//	PrewarmController()
+}
+
+//type Controller interface {
+//	Run(ctx context.Context) error
+//}
 // Call a sleep or something outside of this?
-func DeletionControllerLoop(br BackendRunner) error {
+func RunDeletionController(ctx context.Context, br DeletionController) error {
 	// For each registered Runner
 	//List()
 	//For each Pach, check Expiry. If true, call Delete
@@ -61,39 +91,15 @@ func DeletionControllerLoop(br BackendRunner) error {
 
 //
 //
-func PrewarmInfraLoop(br BackendRunner) error {
-	ids, err := br.List()
-	if err != nil {
-		return err
-	}
-	var count int
-	for _, v := range ids {
-		b, err := br.IsPrewarmInfra(v)
-		if err != nil {
-			return err
-		}
-		if b {
-			count += 1
-		}
-	}
-	if count < InfraPrewarmCount {
-		i, err := br.ProvisionInfra()
-		if err != nil {
-			return err
-		}
-		fmt.Printf("Prewarming Infra ID: %v\n", i)
-	}
-	return nil
-}
 
-func PrewarmWorkspaceLoop(br BackendRunner) error {
+func RunPrewarmController(ctx context.Context, br PrewarmController) error {
 	ids, err := br.List()
 	if err != nil {
 		return err
 	}
 	var count int
 	for _, v := range ids {
-		b, err := br.IsPrewarmWorkspace(v)
+		b, err := br.IsPrewarm(v)
 		if err != nil {
 			return err
 		}
@@ -102,7 +108,7 @@ func PrewarmWorkspaceLoop(br BackendRunner) error {
 		}
 	}
 	if count < WorkspacePrewarmCount {
-		i, err := br.ProvisionWorkspace()
+		i, err := br.ProvisionPrewarm()
 		if err != nil {
 			return err
 		}
@@ -111,13 +117,13 @@ func PrewarmWorkspaceLoop(br BackendRunner) error {
 	return nil
 }
 
-func CreateHandler(br *BackendRunner, r api.CreateRequest) error {
-	// Grab an existing prewarm if request doesn't include ForceNew
-	// Compute the difference - if possible do a helm upgrade to the desired versions
-	// Or create an entirely new pach
-	//
-	return nil
-}
+//func CreateHandler(br *BackendRunner, r api.CreateRequest) error {
+//	// Grab an existing prewarm if request doesn't include ForceNew
+//	// Compute the difference - if possible do a helm upgrade to the desired versions
+//	// Or create an entirely new pach
+//	//
+//	return nil
+//}
 
 // TODO: Need a way to list all Pachs so that Expiry can be called
 
@@ -146,7 +152,7 @@ func CreateHandler(br *BackendRunner, r api.CreateRequest) error {
 //   pachdVersion:
 //   consoleVersion:
 //   auth.enabled: true
-//   Infra.yaml:
+//   Infra.yaml:  // Backend specific overrides
 //     namespace: foo
 //   Values.yaml:
 //     deploymentTarget: bar
