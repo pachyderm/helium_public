@@ -4,10 +4,13 @@ import "time"
 
 type ID string
 
-type CreateRequest struct {
+type ApiDefaultRequest struct {
 	Version string
 	Backend string
-	Spec    Spec
+}
+type CreateRequest struct {
+	ApiDefaultRequest
+	Spec Spec
 }
 
 type CreateResponse struct {
@@ -23,7 +26,7 @@ type Spec struct {
 	AuthEnabled      bool
 	InfraYAML        string
 	ValuesYAML       string
-	//	SeedDataTarget   string // TODO: remove before deploy
+	SeedDataTarget   string // TODO: remove before deploy
 	// ForceNew         bool // Don't use a prewarm
 }
 
@@ -34,12 +37,21 @@ type Spec struct {
 //	Provider string
 //}
 
-type GetRequest struct {
+type GetConnectionInfoRequest struct {
+	ApiDefaultRequest
 	ID ID
 }
 
-type GetRequestReturn struct {
+type GetConnectionInfoResponse struct {
 	ConnectionInfo ConnectionInfo
+}
+
+type ListRequest struct {
+	ApiDefaultRequest
+}
+
+type ListResponse struct {
+	IDs []ID
 }
 
 type ConnectionInfo struct {

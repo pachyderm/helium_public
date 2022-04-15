@@ -13,18 +13,18 @@ import (
 	metav1 "github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/meta/v1"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/optup"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/tokens"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/workspace"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 
 	"github.com/pachyderm/helium/api"
 	"github.com/pachyderm/helium/backend"
 	"github.com/pachyderm/helium/util"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // This implementation is mostly a thin wrapper around https://github.com/pachyderm/pulumihttp/
-func testing() {
-	fmt.Println("hello")
-}
-
 func init() {
 	ensurePlugins()
 }
@@ -41,12 +41,34 @@ type Runner struct {
 	Name backend.Name
 }
 
-func (r *Runner) GetConnectionInfo(i api.ID) (api.ConnectionInfo, error) {
-	return api.ConnectionInfo{}, nil
+func (r *Runner) GetConnectionInfo(i api.ID) (*api.ConnectionInfo, error) {
+	return nil, nil
 }
 
-func (r *Runner) List() ([]api.ID, error) {
-	return nil, nil
+func (r *Runner) List() (*api.ListResponse, error) {
+	log.SetReportCaller(true)
+	log.SetLevel(log.DebugLevel)
+	log.Infof("list request")
+
+	ctx := context.Background()
+	// set up a workspace with only enough information for the list stack operations
+	ws, err := auto.NewLocalWorkspace(ctx, auto.Project(workspace.Project{
+		Name:    tokens.PackageName(project),
+		Runtime: workspace.NewProjectRuntimeInfo("go", nil),
+	}))
+	if err != nil {
+		return nil, err
+	}
+	stacks, err := ws.ListStacks(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var ids []api.ID
+	for _, stack := range stacks {
+		ids = append(ids, api.ID(stack.Name))
+	}
+	log.Debugf("list ids: %v", ids)
+	return &api.ListResponse{IDs: ids}, nil
 }
 
 func (r *Runner) IsExpired(i api.ID) (bool, error) {
@@ -57,7 +79,7 @@ func (r *Runner) Destroy(i api.ID) error {
 	return nil
 }
 
-func (r *Runner) Create(req api.CreateRequest) (api.CreateResponse, error) {
+func (r *Runner) Create(req *api.CreateRequest) (*api.CreateResponse, error) {
 
 	ctx := context.Background()
 
@@ -76,7 +98,7 @@ func (r *Runner) Create(req api.CreateRequest) (api.CreateResponse, error) {
 
 		//w.WriteHeader(500)
 		//fmt.Fprintf(w, err.Error())
-		return api.CreateResponse{}, err
+		return nil, err
 	}
 	s.SetConfig(ctx, "gcp:project", auto.ConfigValue{Value: "***REMOVED***"})
 	s.SetConfig(ctx, "gcp:zone", auto.ConfigValue{Value: "us-east1-b"})
@@ -85,14 +107,14 @@ func (r *Runner) Create(req api.CreateRequest) (api.CreateResponse, error) {
 	// we'll write all of the update logs to st	out so we can watch requests get processed
 	_, err = s.Up(ctx, optup.ProgressStreams(os.Stdout))
 	if err != nil {
-		return api.CreateResponse{}, err
+		return nil, err
 	}
 
-	return api.CreateResponse{api.ID(stackName)}, nil
+	return &api.CreateResponse{api.ID(stackName)}, nil
 }
 
 func (r *Runner) Register() *api.CreateRequest {
-	return &api.CreateRequest{Backend: BackendName}
+	return &api.CreateRequest{ApiDefaultRequest: api.ApiDefaultRequest{Backend: BackendName}}
 }
 
 // func New() []backend.Controller { //[]Somethings

@@ -17,16 +17,17 @@ type Name string
 type Controller func(context.Context) error
 
 type Lister interface {
-	List() ([]api.ID, error)
+	// TODO: Maybe should take a list.request
+	List() (*api.ListResponse, error)
 }
 type GetConnInfoer interface {
-	GetConnectionInfo(api.ID) (api.ConnectionInfo, error)
+	GetConnectionInfo(api.ID) (*api.ConnectionInfo, error)
 }
 type Destroyer interface {
 	Destroy(api.ID) error
 }
 type Creator interface {
-	Create(api.CreateRequest) (api.CreateResponse, error)
+	Create(*api.CreateRequest) (*api.CreateResponse, error)
 }
 
 type Backend interface {
@@ -73,11 +74,11 @@ func RunDeletionController(ctx context.Context, br DeletionController) error {
 	// For each registered Runner
 	//List()
 	//For each Pach, check Expiry. If true, call Delete
-	ids, err := br.List()
+	id, err := br.List()
 	if err != nil {
 		return err
 	}
-	for _, v := range ids {
+	for _, v := range id.IDs {
 		b, err := br.IsExpired(v)
 		if err != nil {
 			return err
@@ -98,7 +99,7 @@ func RunPrewarmController(ctx context.Context, br PrewarmController) error {
 		return err
 	}
 	var count int
-	for _, v := range ids {
+	for _, v := range ids.IDs {
 		b, err := br.IsPrewarm(v)
 		if err != nil {
 			return err

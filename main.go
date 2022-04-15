@@ -34,8 +34,8 @@ func main() {
 	log.SetLevel(log.DebugLevel)
 	gnp := &gcp_namespace_pulumi.Runner{}
 	//gnp.Setup()
+	//
 	supportedBackends = append(supportedBackends, gnp)
-
 	// Mode handles whether or not we run as a controlplane or api server
 	mode := os.Getenv("HELIUM_MODE")
 	if mode == "API" {
@@ -45,6 +45,7 @@ func main() {
 		authRouter := router.PathPrefix("/api").Subrouter()
 		authRouter.Use(authMiddleware)
 		authRouter.HandleFunc("/create", HandleCreateRequest).Methods("POST")
+		authRouter.HandleFunc("/list", HandleListRequest).Methods("POST")
 
 		s := &http.Server{
 			Addr:    ":2323",
@@ -80,10 +81,10 @@ func HandleCreateRequest(w http.ResponseWriter, r *http.Request) {
 	log.Debug("create handler")
 	w.Header().Set("Content-Type", "application/json")
 
-	var createReq api.CreateRequest
-	var createResponse api.CreateResponse
+	var req *api.CreateRequest
+	var res *api.CreateResponse
 
-	err := json.NewDecoder(r.Body).Decode(&createReq)
+	err := json.NewDecoder(r.Body).Decode(req)
 	if err != nil {
 		w.WriteHeader(400)
 		fmt.Fprintf(w, "failed to parse create request")
@@ -92,23 +93,59 @@ func HandleCreateRequest(w http.ResponseWriter, r *http.Request) {
 
 	for _, v := range supportedBackends {
 		log.Debugf("Backend Found, using: %v", v.Register())
-		log.Debugf("Backend Requested, using: %v", &createReq.Backend)
-		if createReq.Backend == v.Register().Backend {
-			log.Debugf("Supported Backend Found, using: %v", createReq.Backend)
-			createResponse, err = v.Create(createReq)
+		log.Debugf("Backend Requested, using: %v", req.Backend)
+		if req.Backend == v.Register().Backend {
+			log.Debugf("Supported Backend Found, using: %v", req.Backend)
+			res, err = v.Create(req)
 			if err != nil {
 				w.WriteHeader(500)
 				fmt.Fprintf(w, "error creating stack")
+				log.Errorf("create handler: %v", err)
 				return
 			}
 		}
 	}
 
-	log.Debugf("create req: %v", createReq)
-	log.Debugf("auth enabled: %v", createReq.Spec.AuthEnabled)
-	json.NewEncoder(w).Encode(&createResponse)
+	log.Debugf("create req: %v", req)
+	log.Debugf("auth enabled: %v", req.Spec.AuthEnabled)
+	json.NewEncoder(w).Encode(&res)
 }
 
+func HandleListRequest(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	var req *api.ListRequest
+	var res *api.ListResponse
+
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		w.WriteHeader(400)
+		fmt.Fprintf(w, "failed to parse create request")
+		return
+	}
+	//
+	for _, v := range supportedBackends {
+		log.Debugf("Backend Found, using: %v", v.Register())
+		log.Debugf("Backend Requested, using: %v", &req.Backend)
+		if req.Backend == v.Register().Backend {
+			log.Debugf("Supported Backend Found, using: %v", req.Backend)
+			// TODO: Consider taking a list request as arg
+			res, err = v.List()
+			if err != nil {
+				w.WriteHeader(500)
+				fmt.Fprintf(w, "error listing stack")
+				log.Errorf("list handler: %v", err)
+				return
+			}
+		}
+	}
+	log.Debugf("list req: %v", req)
+	log.Debugf("list res: %v", res)
+
+	json.NewEncoder(w).Encode(&res)
+}
+
+//
 // Handle prewarm ensures that there is the minimum prewarm count, and if not, creates another one.
 // func HandlePrewarms() error {
 // 	computeService, err := compute.NewService(context.Background())
@@ -189,6 +226,7 @@ func authMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+//
 //
 //
 func HealthCheckHandler(w http.ResponseWriter, r *http.Request) {

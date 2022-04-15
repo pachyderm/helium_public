@@ -34,10 +34,10 @@ import (
 //
 func TestDeletionControllerLoop(t *testing.T) {
 	want := &TestBackendRunner{
-		ResourceIDs: []api.ID{"B", "C", "D"},
+		ResourceIDs: api.ListResponse{[]api.ID{"B", "C", "D"}},
 	}
 	got := &TestBackendRunner{
-		ResourceIDs: []api.ID{"A", "B", "C", "D"},
+		ResourceIDs: api.ListResponse{[]api.ID{"A", "B", "C", "D"}},
 	}
 	err := DeletionController(got)
 	if err != nil {
@@ -48,12 +48,13 @@ func TestDeletionControllerLoop(t *testing.T) {
 	}
 }
 
+//TODO: Setup proper pointers at some point
 func TestPrewarm(t *testing.T) {
 	want := &TestBackendRunner{
-		ResourceIDs: []api.ID{"A", "B", "C", "D", "F"},
+		ResourceIDs: api.ListResponse{[]api.ID{"A", "B", "C", "D", "F"}},
 	}
 	got := &TestBackendRunner{
-		ResourceIDs: []api.ID{"A", "B", "C", "D"},
+		ResourceIDs: api.ListResponse{[]api.ID{"A", "B", "C", "D"}},
 	}
 	err := PrewarmController(got)
 	if err != nil {
@@ -65,8 +66,9 @@ func TestPrewarm(t *testing.T) {
 }
 
 //
+//
 type TestBackendRunner struct {
-	ResourceIDs []api.ID
+	ResourceIDs api.ListResponse
 }
 
 func (r *TestBackendRunner) Get(i api.ID) (string, error) {
@@ -74,8 +76,8 @@ func (r *TestBackendRunner) Get(i api.ID) (string, error) {
 }
 
 // how to mutate data?
-func (r *TestBackendRunner) List() ([]api.ID, error) {
-	return r.ResourceIDs, nil
+func (r *TestBackendRunner) List() (*api.ListResponse, error) {
+	return &r.ResourceIDs, nil
 }
 
 func (r *TestBackendRunner) IsExpired(i api.ID) (bool, error) {
@@ -88,17 +90,17 @@ func (r *TestBackendRunner) IsExpired(i api.ID) (bool, error) {
 func (r *TestBackendRunner) Destroy(i api.ID) error {
 	// b := r.ResourceIDs[:0]
 	index := 100
-	for z, x := range r.ResourceIDs {
+	for z, x := range r.ResourceIDs.IDs {
 		if x == i {
 			index = z
 		}
 	}
-	r.ResourceIDs = append(r.ResourceIDs[:index], r.ResourceIDs[index+1:]...)
+	r.ResourceIDs.IDs = append(r.ResourceIDs.IDs[:index], r.ResourceIDs.IDs[index+1:]...)
 	return nil
 }
 
 func (r *TestBackendRunner) ProvisionPrewarm() (api.ID, error) {
-	r.ResourceIDs = append(r.ResourceIDs, "F")
+	r.ResourceIDs.IDs = append(r.ResourceIDs.IDs, "F")
 	return "F", nil
 }
 
