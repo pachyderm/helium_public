@@ -44,8 +44,11 @@ func main() {
 
 		authRouter := router.PathPrefix("/api").Subrouter()
 		authRouter.Use(authMiddleware)
+		// TODO: actually implement a REST api
 		authRouter.HandleFunc("/create", HandleCreateRequest).Methods("POST")
 		authRouter.HandleFunc("/list", HandleListRequest).Methods("POST")
+		authRouter.HandleFunc("/get", HandleGetConnInfoRequest).Methods("POST")
+		authRouter.HandleFunc("/delete", HandleDeleteRequest).Methods("POST")
 
 		s := &http.Server{
 			Addr:    ":2323",
@@ -77,6 +80,7 @@ func main() {
 	}
 }
 
+// TODO: deduplicate common functionality among handlers
 func HandleCreateRequest(w http.ResponseWriter, r *http.Request) {
 	log.Debug("create handler")
 	w.Header().Set("Content-Type", "application/json")
@@ -84,8 +88,9 @@ func HandleCreateRequest(w http.ResponseWriter, r *http.Request) {
 	var req *api.CreateRequest
 	var res *api.CreateResponse
 
-	err := json.NewDecoder(r.Body).Decode(req)
+	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
+		log.Errorf("failed to parse create request: %v", err)
 		w.WriteHeader(400)
 		fmt.Fprintf(w, "failed to parse create request")
 		return
@@ -107,7 +112,7 @@ func HandleCreateRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Debugf("create req: %v", req)
-	log.Debugf("auth enabled: %v", req.Spec.AuthEnabled)
+	log.Debugf("auth enabled: %v", req.Spec.PachdVersion)
 	json.NewEncoder(w).Encode(&res)
 }
 
@@ -143,6 +148,73 @@ func HandleListRequest(w http.ResponseWriter, r *http.Request) {
 	log.Debugf("list res: %v", res)
 
 	json.NewEncoder(w).Encode(&res)
+}
+
+func HandleGetConnInfoRequest(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	var req *api.GetConnectionInfoRequest
+	var res *api.GetConnectionInfoResponse
+	//
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		w.WriteHeader(400)
+		fmt.Fprintf(w, "failed to parse create request")
+		return
+	}
+	//
+	for _, v := range supportedBackends {
+		log.Debugf("Backend Found, using: %v", v.Register())
+		log.Debugf("Backend Requested, using: %v", &req.Backend)
+		if req.Backend == v.Register().Backend {
+			log.Debugf("Supported Backend Found, using: %v", req.Backend)
+			// TODO: Consider taking a list request as arg
+			res, err = v.GetConnectionInfo(req.ID)
+			if err != nil {
+				w.WriteHeader(500)
+				fmt.Fprintf(w, "error getting connection info for stack")
+				log.Errorf("getConnInfo handler: %v", err)
+				return
+			}
+		}
+	}
+	log.Debugf("getConnInfo req: %v", req)
+	log.Debugf("getConnInfo res: %v", res)
+
+	json.NewEncoder(w).Encode(&res)
+}
+
+// TODO: pick delete or destroy, not both
+func HandleDeleteRequest(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	var req *api.DeleteRequest
+	//	var res *api.DeleteResponse
+
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		w.WriteHeader(400)
+		fmt.Fprintf(w, "failed to parse create request")
+		return
+	}
+	//
+	for _, v := range supportedBackends {
+		log.Debugf("Backend Found, using: %v", v.Register())
+		log.Debugf("Backend Requested, using: %v", &req.Backend)
+		if req.Backend == v.Register().Backend {
+			log.Debugf("Supported Backend Found, using: %v", req.Backend)
+			// TODO: Consider taking a list request as arg
+			err = v.Destroy(req.ID)
+			if err != nil {
+				w.WriteHeader(500)
+				fmt.Fprintf(w, "error destroying stack")
+				log.Errorf("delete handler: %v", err)
+				return
+			}
+		}
+	}
+	w.WriteHeader(200)
+
 }
 
 //

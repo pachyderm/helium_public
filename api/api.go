@@ -9,8 +9,10 @@ type ApiDefaultRequest struct {
 	Backend string
 }
 type CreateRequest struct {
-	ApiDefaultRequest
-	Spec Spec
+	//	ApiDefaultRequest
+	Version string
+	Backend string
+	Spec    Spec
 }
 
 type CreateResponse struct {
@@ -18,15 +20,16 @@ type CreateResponse struct {
 }
 
 type Spec struct {
+	// TODO: Name?
 	//	Backend          Backend
 	Expiry           time.Time
 	PachdVersion     string
 	ConsoleVersion   string
 	NotebooksVersion string
-	AuthEnabled      bool
-	InfraYAML        string
-	ValuesYAML       string
-	SeedDataTarget   string // TODO: remove before deploy
+	//	AuthEnabled      bool
+	//	InfraYAML        string
+	ValuesYAML string
+	//SeedDataTarget   string // TODO: remove before deploy
 	// ForceNew         bool // Don't use a prewarm
 }
 
@@ -54,8 +57,14 @@ type ListResponse struct {
 	IDs []ID
 }
 
+type DeleteRequest struct {
+	ApiDefaultRequest
+	ID ID
+}
+
 type ConnectionInfo struct {
 	K8s          string
+	K8sNamespace string
 	ConsoleURL   string
 	NotebooksURL string
 	Pachctl      string

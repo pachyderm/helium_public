@@ -12,6 +12,7 @@ import (
 	helm "github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/helm/v3"
 	metav1 "github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/meta/v1"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
+	"github.com/pulumi/pulumi/sdk/v3/go/auto/optdestroy"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/optup"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/tokens"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/workspace"
@@ -41,8 +42,37 @@ type Runner struct {
 	Name backend.Name
 }
 
-func (r *Runner) GetConnectionInfo(i api.ID) (*api.ConnectionInfo, error) {
-	return nil, nil
+func (r *Runner) GetConnectionInfo(i api.ID) (*api.GetConnectionInfoResponse, error) {
+	log.SetReportCaller(true)
+	log.SetLevel(log.DebugLevel)
+	log.Infof("get request")
+
+	stackName := string(i)
+	// we don't need a program since we're just getting stack outputs
+	var program pulumi.RunFunc = nil
+	ctx := context.Background()
+	s, err := auto.SelectStackInlineSource(ctx, stackName, project, program)
+	if err != nil {
+		// if the stack doesn't already exist, 404
+		if auto.IsSelectStack404Error(err) {
+			return nil, fmt.Errorf("stack %q not found: %w", stackName, err)
+		}
+		return nil, err
+	}
+	//
+	// fetch the outputs from the stack
+	outs, err := s.Outputs(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &api.GetConnectionInfoResponse{ConnectionInfo: api.ConnectionInfo{
+		K8s:          "gcloud container clusters get-credentials ci-cluster-b9c3629 --zone us-east1-b --project ***REMOVED***",
+		K8sNamespace: outs["k8sNamespace"].Value.(string),
+		ConsoleURL:   "https://" + outs["consoleUrl"].Value.(string),
+		NotebooksURL: "https://" + outs["juypterUrl"].Value.(string),
+		Pachctl:      outs["pachdAddress"].Value.(string),
+	}}, nil
 }
 
 func (r *Runner) List() (*api.ListResponse, error) {
@@ -75,29 +105,15 @@ func (r *Runner) IsExpired(i api.ID) (bool, error) {
 	return false, nil
 }
 
-func (r *Runner) Destroy(i api.ID) error {
-	return nil
-}
-
 func (r *Runner) Create(req *api.CreateRequest) (*api.CreateResponse, error) {
 
 	ctx := context.Background()
 
-	stackName := fmt.Sprintf("%s-%s", StackNamePrefix, util.RandomString(6))
+	stackName := util.Name()
 	program := createPulumiProgram(stackName)
 
 	s, err := auto.NewStackInlineSource(ctx, stackName, project, program)
 	if err != nil {
-		// TODO: throw a 409 error if stack already exists
-		// if stack already exists, 409
-		//if auto.IsCreateStack409Error(err) {
-		//	w.WriteHeader(409)
-		//	fmt.Fprintf(w, fmt.Sprintf("stack %q already exists", stackName))
-		//	return
-		//}
-
-		//w.WriteHeader(500)
-		//fmt.Fprintf(w, err.Error())
 		return nil, err
 	}
 	s.SetConfig(ctx, "gcp:project", auto.ConfigValue{Value: "***REMOVED***"})
@@ -113,8 +129,47 @@ func (r *Runner) Create(req *api.CreateRequest) (*api.CreateResponse, error) {
 	return &api.CreateResponse{api.ID(stackName)}, nil
 }
 
+func (r *Runner) Destroy(i api.ID) error {
+	log.SetReportCaller(true)
+	log.SetLevel(log.DebugLevel)
+	log.Infof("destroy request")
+
+	ctx := context.Background()
+	stackName := string(i)
+	// program doesn't matter for destroying a stack
+	program := createPulumiProgram("")
+
+	s, err := auto.SelectStackInlineSource(ctx, stackName, project, program)
+	if err != nil {
+		// if stack doesn't already exist, 404
+		if auto.IsSelectStack404Error(err) {
+			log.Errorf("stack %q not found", stackName)
+			return err
+		}
+		return err
+	}
+	s.SetConfig(ctx, "gcp:project", auto.ConfigValue{Value: "***REMOVED***"})
+	s.SetConfig(ctx, "gcp:zone", auto.ConfigValue{Value: "us-east1-b"})
+	// destroy the stack
+	// we'll write all of the logs to stdout so we can watch requests get processed
+	_, err = s.Destroy(ctx, optdestroy.ProgressStreams(os.Stdout))
+	if err != nil {
+		return err
+	}
+
+	// delete the stack and all associated history and config
+	err = s.Workspace().RemoveStack(ctx, stackName)
+	if err != nil {
+		return err
+	}
+	log.Infof("deleted all associated stack information with: %s", stackName)
+	return nil
+}
+
 func (r *Runner) Register() *api.CreateRequest {
-	return &api.CreateRequest{ApiDefaultRequest: api.ApiDefaultRequest{Backend: BackendName}}
+	return &api.CreateRequest{ //ApiDefaultRequest: api.ApiDefaultRequest{
+		Backend: BackendName, //}
+	}
 }
 
 // func New() []backend.Controller { //[]Somethings
@@ -150,13 +205,7 @@ func createPulumiProgram(id string) pulumi.RunFunc {
 		}
 
 		bucket, err := storage.NewBucket(ctx, "pach-bucket", &storage.BucketArgs{
-			//Name:     pulumi.String(id),
 			Location: pulumi.String("US"),
-			/*
-				Labels: pulumi.StringMap{
-					"workspace": pulumi.String("myfinecluster"),
-				},
-			*/
 		})
 		if err != nil {
 			return err
@@ -190,6 +239,8 @@ func createPulumiProgram(id string) pulumi.RunFunc {
 			return err
 		}
 
+		consoleUrl := pulumi.String(id + ".***REMOVED***")
+
 		_, err = helm.NewRelease(ctx, "pach-release", &helm.ReleaseArgs{
 			Namespace: namespace.Metadata.Elem().Name(),
 			RepositoryOpts: helm.RepositoryOptsArgs{
@@ -207,7 +258,7 @@ func createPulumiProgram(id string) pulumi.RunFunc {
 						"traefik.ingress.kubernetes.io/router.tls": pulumi.String("true"),
 					},
 					"enabled": pulumi.Bool(true),
-					"host":    pulumi.String(id + ".***REMOVED***"),
+					"host":    consoleUrl,
 					"tls": pulumi.Map{
 						"enabled":    pulumi.Bool(true),
 						"secretName": pulumi.String("wildcard-tls"), // Dynamic Value
@@ -237,6 +288,8 @@ func createPulumiProgram(id string) pulumi.RunFunc {
 		if err != nil {
 			return err
 		}
+
+		juypterURL := pulumi.String("jh-" + id + ".***REMOVED***")
 
 		_, err = helm.NewRelease(ctx, "jh-release", &helm.ReleaseArgs{
 			Namespace: namespace.Metadata.Elem().Name(),
@@ -271,7 +324,7 @@ func createPulumiProgram(id string) pulumi.RunFunc {
 						"kubernetes.io/ingress.class":              pulumi.String("traefik"),
 						"traefik.ingress.kubernetes.io/router.tls": pulumi.String("true"),
 					},
-					"hosts": pulumi.StringArray{pulumi.String("jh-" + id + ".***REMOVED***")},
+					"hosts": pulumi.StringArray{juypterURL},
 					"tls": pulumi.MapArray{
 						pulumi.Map{
 							"hosts":      pulumi.StringArray{pulumi.String("jh-" + id + ".***REMOVED***")},
@@ -291,6 +344,12 @@ func createPulumiProgram(id string) pulumi.RunFunc {
 		if err != nil {
 			return err
 		}
+		ctx.Export("juypterUrl", juypterURL)
+		ctx.Export("consoleUrl", consoleUrl)
+		ctx.Export("pachdAddress", consoleUrl)
+		//ctx.Export("kubeConfig", kubeConfig)
+		ctx.Export("k8sNamespace", namespace.Metadata.Elem().Name())
+		ctx.Export("bucket", bucket.Name)
 
 		return nil
 	}

@@ -2,7 +2,6 @@ package backend
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/pachyderm/helium/api"
 )
@@ -21,7 +20,7 @@ type Lister interface {
 	List() (*api.ListResponse, error)
 }
 type GetConnInfoer interface {
-	GetConnectionInfo(api.ID) (*api.ConnectionInfo, error)
+	GetConnectionInfo(api.ID) (*api.GetConnectionInfoResponse, error)
 }
 type Destroyer interface {
 	Destroy(api.ID) error
@@ -52,19 +51,20 @@ type DeletionController interface {
 	Destroyer
 	//	DeletionController()
 }
-type IsPrewarmer interface {
-	IsPrewarm(api.ID) (bool, error)
-}
 
-type PrewarmProvisioner interface {
-	ProvisionPrewarm() (api.ID, error)
-}
-type PrewarmController interface {
-	Lister
-	IsPrewarmer
-	PrewarmProvisioner
-	//	PrewarmController()
-}
+//type IsPrewarmer interface {
+//	IsPrewarm(api.ID) (bool, error)
+//}
+//
+//type PrewarmProvisioner interface {
+//	ProvisionPrewarm() (api.ID, error)
+//}
+//type PrewarmController interface {
+//	Lister
+//	IsPrewarmer
+//	PrewarmProvisioner
+//	//	PrewarmController()
+//}
 
 //type Controller interface {
 //	Run(ctx context.Context) error
@@ -92,31 +92,6 @@ func RunDeletionController(ctx context.Context, br DeletionController) error {
 
 //
 //
-
-func RunPrewarmController(ctx context.Context, br PrewarmController) error {
-	ids, err := br.List()
-	if err != nil {
-		return err
-	}
-	var count int
-	for _, v := range ids.IDs {
-		b, err := br.IsPrewarm(v)
-		if err != nil {
-			return err
-		}
-		if b {
-			count += 1
-		}
-	}
-	if count < WorkspacePrewarmCount {
-		i, err := br.ProvisionPrewarm()
-		if err != nil {
-			return err
-		}
-		fmt.Printf("Prewarming Worskpace ID: %v\n", i)
-	}
-	return nil
-}
 
 //func CreateHandler(br *BackendRunner, r api.CreateRequest) error {
 //	// Grab an existing prewarm if request doesn't include ForceNew
