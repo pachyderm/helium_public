@@ -49,6 +49,7 @@ func main() {
 		authRouter.HandleFunc("/list", HandleListRequest).Methods("POST")
 		authRouter.HandleFunc("/get", HandleGetConnInfoRequest).Methods("POST")
 		authRouter.HandleFunc("/delete", HandleDeleteRequest).Methods("POST")
+		authRouter.HandleFunc("/isexpired", HandleIsExpiredRequest).Methods("POST")
 
 		s := &http.Server{
 			Addr:    ":2323",
@@ -101,7 +102,7 @@ func HandleCreateRequest(w http.ResponseWriter, r *http.Request) {
 		log.Debugf("Backend Requested, using: %v", req.Backend)
 		if req.Backend == v.Register().Backend {
 			log.Debugf("Supported Backend Found, using: %v", req.Backend)
-			res, err = v.Create(req)
+			res, err = v.Create(&req.Spec)
 			if err != nil {
 				w.WriteHeader(500)
 				fmt.Fprintf(w, "error creating stack")
@@ -182,6 +183,39 @@ func HandleGetConnInfoRequest(w http.ResponseWriter, r *http.Request) {
 	log.Debugf("getConnInfo res: %v", res)
 
 	json.NewEncoder(w).Encode(&res)
+}
+
+func HandleIsExpiredRequest(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	var req *api.IsExpiredRequest
+	var val bool
+	//
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		w.WriteHeader(400)
+		fmt.Fprintf(w, "failed to parse create request")
+		return
+	}
+	//
+	//
+	for _, v := range supportedBackends {
+		log.Debugf("Backend Found, using: %v", v.Register())
+		log.Debugf("Backend Requested, using: %v", &req.Backend)
+		if req.Backend == v.Register().Backend {
+			log.Debugf("Supported Backend Found, using: %v", req.Backend)
+			// TODO: Consider taking a list request as arg
+			val, err = v.IsExpired(req.ID)
+			if err != nil {
+				w.WriteHeader(500)
+				fmt.Fprintf(w, "error getting expiry for stack")
+				log.Errorf("IsExpired handler: %v", err)
+				return
+			}
+		}
+	}
+	log.Debugf("IsExpired req: %v", &req)
+	json.NewEncoder(w).Encode(&api.IsExpiredResponse{Expired: val})
 }
 
 // TODO: pick delete or destroy, not both

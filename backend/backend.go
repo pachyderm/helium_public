@@ -26,7 +26,7 @@ type Destroyer interface {
 	Destroy(api.ID) error
 }
 type Creator interface {
-	Create(*api.CreateRequest) (*api.CreateResponse, error)
+	Create(*api.Spec) (*api.CreateResponse, error)
 }
 
 type Backend interface {
@@ -34,6 +34,8 @@ type Backend interface {
 	GetConnInfoer
 	Creator
 	Destroyer
+	// TODO: Expiry probably doesn't need to live in the API
+	IsExpirer
 	Register() *api.CreateRequest
 	Controller(context.Context) []Controller
 }

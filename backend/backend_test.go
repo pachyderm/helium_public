@@ -49,21 +49,21 @@ func TestDeletionControllerLoop(t *testing.T) {
 }
 
 //TODO: Setup proper pointers at some point
-func TestPrewarm(t *testing.T) {
-	want := &TestBackendRunner{
-		ResourceIDs: api.ListResponse{[]api.ID{"A", "B", "C", "D", "F"}},
-	}
-	got := &TestBackendRunner{
-		ResourceIDs: api.ListResponse{[]api.ID{"A", "B", "C", "D"}},
-	}
-	err := PrewarmController(got)
-	if err != nil {
-		t.Errorf("error: %v", err)
-	}
-	if !cmp.Equal(got, want) {
-		t.Errorf(fmt.Sprintf("diff: %v", cmp.Diff(got, want)))
-	}
-}
+//func TestPrewarm(t *testing.T) {
+//	want := &TestBackendRunner{
+//		ResourceIDs: api.ListResponse{[]api.ID{"A", "B", "C", "D", "F"}},
+//	}
+//	got := &TestBackendRunner{
+//		ResourceIDs: api.ListResponse{[]api.ID{"A", "B", "C", "D"}},
+//	}
+//	err := PrewarmController(got)
+//	if err != nil {
+//		t.Errorf("error: %v", err)
+//	}
+//	if !cmp.Equal(got, want) {
+//		t.Errorf(fmt.Sprintf("diff: %v", cmp.Diff(got, want)))
+//	}
+//}
 
 //
 //
@@ -119,14 +119,14 @@ func (r *TestBackendRunner) Create(api.CreateRequest) (api.CreateResponse, error
 //
 func (r *TestBackendRunner) Controller() []Controller {
 	return []Controller{
-		r.PrewarmController,
+		//r.PrewarmController,
 		r.DeletionController,
 	}
 }
 
-func (r *TestBackendRunner) PrewarmController(ctx context.Context) error {
-	return RunPrewarmController(ctx, r)
-} //TODO ctx
+//func (r *TestBackendRunner) PrewarmController(ctx context.Context) error {
+//	return RunPrewarmController(ctx, r)
+//} //TODO ctx
 
 func (r *TestBackendRunner) DeletionController(ctx context.Context) error {
 	return RunDeletionController(ctx, r)

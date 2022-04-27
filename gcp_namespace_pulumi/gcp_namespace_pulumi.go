@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/pulumi/pulumi-gcp/sdk/v6/go/gcp/compute"
 	"github.com/pulumi/pulumi-gcp/sdk/v6/go/gcp/storage"
@@ -34,6 +35,7 @@ func init() {
 const (
 	BackendName     = "gcp-namespace-pulumi"
 	StackNamePrefix = "sean-testing"
+	timeFormat      = "2006-01-02"
 )
 
 var project = "pulumi_over_http"
@@ -59,7 +61,6 @@ func (r *Runner) GetConnectionInfo(i api.ID) (*api.GetConnectionInfoResponse, er
 		}
 		return nil, err
 	}
-	//
 	// fetch the outputs from the stack
 	outs, err := s.Outputs(ctx)
 	if err != nil {
@@ -71,7 +72,8 @@ func (r *Runner) GetConnectionInfo(i api.ID) (*api.GetConnectionInfoResponse, er
 		K8sNamespace: outs["k8sNamespace"].Value.(string),
 		ConsoleURL:   "https://" + outs["consoleUrl"].Value.(string),
 		NotebooksURL: "https://" + outs["juypterUrl"].Value.(string),
-		Pachctl:      outs["pachdAddress"].Value.(string),
+		Pachctl:      `echo '{"pachd_address": "grpc://34.74.141.203:30651", "source": 2}' | pachctl config set context "silly-pig" --overwrite && pachctl config set active-context "silly-pig"`,
+		//Pachctl:      outs["pachdAddress"].Value.(string),
 	}}, nil
 }
 
@@ -102,15 +104,76 @@ func (r *Runner) List() (*api.ListResponse, error) {
 }
 
 func (r *Runner) IsExpired(i api.ID) (bool, error) {
+	log.SetReportCaller(true)
+	log.SetLevel(log.DebugLevel)
+	log.Infof("get request")
+	//
+	stackName := string(i)
+	// we don't need a program since we're just getting stack outputs
+	var program pulumi.RunFunc = nil
+	ctx := context.Background()
+	s, err := auto.SelectStackInlineSource(ctx, stackName, project, program)
+	if err != nil {
+		// if the stack doesn't already exist, 404
+		if auto.IsSelectStack404Error(err) {
+			return false, fmt.Errorf("stack %q not found: %w", stackName, err)
+		}
+		return false, err
+	}
+	// fetch the outputs from the stack
+	outs, err := s.Outputs(ctx)
+	if err != nil {
+		return false, err
+	}
+	log.Debugf("Expiry: %v", outs["helium-expiry"].Value.(string))
+
+	expiry, err := time.Parse(timeFormat, outs["helium-expiry"].Value.(string))
+	if err != nil {
+		return false, err
+	}
+	if time.Now().After(expiry) {
+		return true, nil
+	}
 	return false, nil
 }
 
-func (r *Runner) Create(req *api.CreateRequest) (*api.CreateResponse, error) {
+func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 
 	ctx := context.Background()
 
-	stackName := util.Name()
-	program := createPulumiProgram(stackName)
+	//type Spec struct {
+	//	Name             string
+	//	Expiry           time.Time
+	//	PachdVersion     string
+	//	ConsoleVersion   string
+	//	NotebooksVersion string
+	//	ValuesYAML       string
+	//}
+
+	log.Debugf("Name: %v", req.Name)
+	log.Debugf("Expiry: %v", req.Expiry)
+	log.Debugf("PachdVersion: %v", req.PachdVersion)
+	log.Debugf("ConsoleVersion: %v", req.ConsoleVersion)
+	log.Debugf("NotebooksVersion: %v", req.NotebooksVersion)
+	log.Debugf("ValuesYAML: %v", req.ValuesYAML)
+
+	stackName := req.Name
+	if req.Name == "" {
+		stackName = util.Name()
+	}
+
+	expiry := req.Expiry
+	if expiry.IsZero() {
+		expiry = time.Now().AddDate(0, 0, 1*3)
+		log.Debugf("Expiry: %v", expiry)
+	} else if expiry.After(time.Now().AddDate(0, 0, 1*90)) {
+		// Max expiration date is 90 days from now
+		expiry = time.Now().AddDate(0, 0, 1*90)
+		log.Debugf("Expiry: %v", expiry)
+	}
+	expiryStr := expiry.Format(timeFormat)
+
+	program := createPulumiProgram(stackName, expiryStr)
 
 	s, err := auto.NewStackInlineSource(ctx, stackName, project, program)
 	if err != nil {
@@ -137,7 +200,8 @@ func (r *Runner) Destroy(i api.ID) error {
 	ctx := context.Background()
 	stackName := string(i)
 	// program doesn't matter for destroying a stack
-	program := createPulumiProgram("")
+	//	program := createPulumiProgram("", "")
+	program := createEmptyPulumiProgram()
 
 	s, err := auto.SelectStackInlineSource(ctx, stackName, project, program)
 	if err != nil {
@@ -167,9 +231,7 @@ func (r *Runner) Destroy(i api.ID) error {
 }
 
 func (r *Runner) Register() *api.CreateRequest {
-	return &api.CreateRequest{ //ApiDefaultRequest: api.ApiDefaultRequest{
-		Backend: BackendName, //}
-	}
+	return &api.CreateRequest{ApiDefaultRequest: api.ApiDefaultRequest{Backend: BackendName}}
 }
 
 // func New() []backend.Controller { //[]Somethings
@@ -189,7 +251,13 @@ func (r *Runner) DeletionController(ctx context.Context) error {
 	return backend.RunDeletionController(ctx, r)
 }
 
-func createPulumiProgram(id string) pulumi.RunFunc {
+func createEmptyPulumiProgram() pulumi.RunFunc {
+	return func(ctx *pulumi.Context) error {
+		return nil
+	}
+}
+
+func createPulumiProgram(id, expiry string) pulumi.RunFunc {
 	return func(ctx *pulumi.Context) error {
 
 		slug := "pachyderm/ci-cluster/dev"
@@ -230,7 +298,8 @@ func createPulumiProgram(id string) pulumi.RunFunc {
 			Metadata: &metav1.ObjectMetaArgs{
 				Name: pulumi.String(id),
 				Labels: pulumi.StringMap{
-					"needs-ci-tls": pulumi.String("true"), //Uses kubernetes replicator to replicate TLS secret to new NS
+					"needs-ci-tls":  pulumi.String("true"), //Uses kubernetes replicator to replicate TLS secret to new NS
+					"helium-expiry": pulumi.String(expiry),
 				},
 			},
 		}, pulumi.Provider(k8sProvider))
@@ -265,12 +334,12 @@ func createPulumiProgram(id string) pulumi.RunFunc {
 					},
 				},
 				"pachd": pulumi.Map{
-					/*"externalService": pulumi.Map{
-						"enabled":        pulumi.Bool(true),
-						"loadBalancerIP": ipAddress,
-						"apiGRPCPort":    pulumi.Int(30651), //Dynamic Value
-						"s3GatewayPort":  pulumi.Int(30601), //Dynamic Value
-					},*/
+					"externalService": pulumi.Map{
+						"enabled": pulumi.Bool(true),
+						//"loadBalancerIP": ipAddress,
+						"apiGRPCPort":   pulumi.Int(30651), //Dynamic Value
+						"s3GatewayPort": pulumi.Int(30601), //Dynamic Value
+					},
 					"enterpriseLicenseKey": pulumi.String("***REMOVED***"), //Set in .circleci/config.yml
 					"storage": pulumi.Map{
 						"google": pulumi.Map{
@@ -350,6 +419,7 @@ func createPulumiProgram(id string) pulumi.RunFunc {
 		//ctx.Export("kubeConfig", kubeConfig)
 		ctx.Export("k8sNamespace", namespace.Metadata.Elem().Name())
 		ctx.Export("bucket", bucket.Name)
+		ctx.Export("helium-expiry", pulumi.String(expiry))
 
 		return nil
 	}

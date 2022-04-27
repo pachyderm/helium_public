@@ -9,10 +9,8 @@ type ApiDefaultRequest struct {
 	Backend string
 }
 type CreateRequest struct {
-	//	ApiDefaultRequest
-	Version string
-	Backend string
-	Spec    Spec
+	ApiDefaultRequest
+	Spec Spec
 }
 
 type CreateResponse struct {
@@ -20,25 +18,13 @@ type CreateResponse struct {
 }
 
 type Spec struct {
-	// TODO: Name?
-	//	Backend          Backend
+	Name             string
 	Expiry           time.Time
 	PachdVersion     string
 	ConsoleVersion   string
 	NotebooksVersion string
-	//	AuthEnabled      bool
-	//	InfraYAML        string
-	ValuesYAML string
-	//SeedDataTarget   string // TODO: remove before deploy
-	// ForceNew         bool // Don't use a prewarm
+	ValuesYAML       string
 }
-
-// TODO: Should backend be where flavors of auth are supported? Is it implementation dependent?
-//type Backend struct {
-//	Target   string
-//	Type     string
-//	Provider string
-//}
 
 type GetConnectionInfoRequest struct {
 	ApiDefaultRequest
@@ -55,6 +41,15 @@ type ListRequest struct {
 
 type ListResponse struct {
 	IDs []ID
+}
+
+type IsExpiredRequest struct {
+	ApiDefaultRequest
+	ID ID
+}
+
+type IsExpiredResponse struct {
+	Expired bool
 }
 
 type DeleteRequest struct {
