@@ -3,6 +3,8 @@ package backend
 import (
 	"context"
 
+	log "github.com/sirupsen/logrus"
+
 	"github.com/pachyderm/helium/api"
 )
 
@@ -86,7 +88,8 @@ func RunDeletionController(ctx context.Context, br DeletionController) error {
 			return err
 		}
 		if b {
-			br.Destroy(v)
+			log.Debugf("Dry-Run Destroying: %v", v)
+			//br.Destroy(v)
 		}
 	}
 	return nil

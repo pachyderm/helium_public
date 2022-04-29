@@ -66,14 +66,15 @@ func (r *Runner) GetConnectionInfo(i api.ID) (*api.GetConnectionInfoResponse, er
 	if err != nil {
 		return nil, err
 	}
+	pachdip := outs["pachdip"].Value.(map[string]interface{})["ip"].(string)
+	pachdAddress := fmt.Sprintf("echo '{\"pachd_address\": \"%v://%v:%v\", \"source\": 2}' | tr -d \\ | pachctl config set context %v --overwrite && pachctl config set active-context %v", "grpc", pachdip, "30651", outs["k8sNamespace"].Value.(string), outs["k8sNamespace"].Value.(string))
 
 	return &api.GetConnectionInfoResponse{ConnectionInfo: api.ConnectionInfo{
 		K8s:          "gcloud container clusters get-credentials ci-cluster-b9c3629 --zone us-east1-b --project ***REMOVED***",
 		K8sNamespace: outs["k8sNamespace"].Value.(string),
 		ConsoleURL:   "https://" + outs["consoleUrl"].Value.(string),
 		NotebooksURL: "https://" + outs["juypterUrl"].Value.(string),
-		Pachctl:      `echo '{"pachd_address": "grpc://34.74.141.203:30651", "source": 2}' | pachctl config set context "silly-pig" --overwrite && pachctl config set active-context "silly-pig"`,
-		//Pachctl:      outs["pachdAddress"].Value.(string),
+		Pachctl:      pachdAddress,
 	}}, nil
 }
 
@@ -310,7 +311,7 @@ func createPulumiProgram(id, expiry string) pulumi.RunFunc {
 
 		consoleUrl := pulumi.String(id + ".***REMOVED***")
 
-		_, err = helm.NewRelease(ctx, "pach-release", &helm.ReleaseArgs{
+		corePach, err := helm.NewRelease(ctx, "pach-release", &helm.ReleaseArgs{
 			Namespace: namespace.Metadata.Elem().Name(),
 			RepositoryOpts: helm.RepositoryOptsArgs{
 				Repo: pulumi.String("https://helm.***REMOVED***"), //TODO Use Chart files in Repo
@@ -351,12 +352,38 @@ func createPulumiProgram(id, expiry string) pulumi.RunFunc {
 						},
 					},
 				},
+				//"oidc": pulumi.Map{
+				//	"upstreamIDPs": pulumi.Array{
+				//		pulumi.Map{
+				//			"id":         pulumi.String("auth0"),
+				//			"jsonConfig": pulumi.String(""),
+				//		},
+				//	},
+				//},
 			},
 		}, pulumi.Provider(k8sProvider))
-
 		if err != nil {
 			return err
 		}
+		//, corePach.Status.Name()
+		log.Debugf("AAA Looking for result")
+		result := pulumi.All(corePach.Status.Namespace()).ApplyT(func(r interface{}) ([]interface{}, error) {
+			log.Debugf("222 Looking for result")
+			arr := r.([]interface{})
+			namespace := arr[0].(*string)
+			//name := arr[1].(*string)
+			log.Debugf("BBB Looking for result")
+			svc, err := corev1.GetService(ctx, "svc", pulumi.ID(fmt.Sprintf("%s/pachd-lb", *namespace)), nil)
+			log.Debugf("111 Looking for result")
+			if err != nil {
+				return nil, err
+			}
+			log.Debugf("CCC Looking for result")
+			// Return the cluster IP and service name
+			//	_ =
+			//svc.Spec.ExternalIPs().Index(pulumi.Int(0))
+			return []interface{}{svc.Status.LoadBalancer().Ingress().Index(pulumi.Int(0)), svc.Metadata.Name().Elem()}, nil
+		})
 
 		juypterURL := pulumi.String("jh-" + id + ".***REMOVED***")
 
@@ -413,6 +440,18 @@ func createPulumiProgram(id, expiry string) pulumi.RunFunc {
 		if err != nil {
 			return err
 		}
+
+		log.Debugf("DDD Looking for result")
+		arr := result.(pulumi.ArrayOutput)
+		log.Debugf("EEE Looking for result")
+		//if arr.Index(pulumi.Int(1)) != nil {
+		//	log.Debugf("FFF Looking for result: %v", arr.Index(pulumi.Int(1)))
+		//	return arr.Index(pulumi.Int(1)).(error)
+		//}
+		log.Debugf("GGG Looking for result")
+		ctx.Export("pachdip", arr.Index(pulumi.Int(0)))
+		log.Debugf("HHH Looking for result")
+
 		ctx.Export("juypterUrl", juypterURL)
 		ctx.Export("consoleUrl", consoleUrl)
 		ctx.Export("pachdAddress", consoleUrl)

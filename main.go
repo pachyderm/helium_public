@@ -251,6 +251,10 @@ func HandleDeleteRequest(w http.ResponseWriter, r *http.Request) {
 
 }
 
+func RunDeletionControllers() {
+
+}
+
 //
 // Handle prewarm ensures that there is the minimum prewarm count, and if not, creates another one.
 // func HandlePrewarms() error {
