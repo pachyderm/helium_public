@@ -164,17 +164,24 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 	log.Debugf("PachdVersion: %v", req.PachdVersion)
 	log.Debugf("ConsoleVersion: %v", req.ConsoleVersion)
 	log.Debugf("NotebooksVersion: %v", req.NotebooksVersion)
+	log.Debugf("HelmVersion: %v", req.HelmVersion)
 	log.Debugf("ValuesYAML: %v", req.ValuesYAML)
+
+	helmchartVersion := req.HelmVersion
 
 	stackName := req.Name
 	if req.Name == "" {
 		stackName = util.Name()
 	}
-
-	expiry, err := time.Parse(timeFormat, req.Expiry)
-	if err != nil {
-		return nil, err
+	var expiry time.Time
+	var err error
+	if req.Expiry != "" {
+		expiry, err = time.Parse(timeFormat, req.Expiry)
+		if err != nil {
+			return nil, err
+		}
 	}
+
 	if expiry.IsZero() {
 		expiry = time.Now().AddDate(0, 0, 1*3)
 		log.Debugf("Expiry: %v", expiry)
@@ -185,7 +192,7 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 	}
 	expiryStr := expiry.Format(timeFormat)
 
-	program := createPulumiProgram(stackName, expiryStr)
+	program := createPulumiProgram(stackName, expiryStr, helmchartVersion)
 
 	s, err := auto.NewStackInlineSource(ctx, stackName, project, program)
 	if err != nil {
@@ -271,7 +278,7 @@ func createEmptyPulumiProgram() pulumi.RunFunc {
 	}
 }
 
-func createPulumiProgram(id, expiry string) pulumi.RunFunc {
+func createPulumiProgram(id, expiry, helmChartVersion string) pulumi.RunFunc {
 	return func(ctx *pulumi.Context) error {
 
 		slug := "pachyderm/ci-cluster/dev"
@@ -358,7 +365,8 @@ func createPulumiProgram(id, expiry string) pulumi.RunFunc {
 			RepositoryOpts: helm.RepositoryOptsArgs{
 				Repo: pulumi.String("https://helm.***REMOVED***"), //TODO Use Chart files in Repo
 			},
-			Chart: pulumi.String("pachyderm"),
+			Version: pulumi.String(helmChartVersion),
+			Chart:   pulumi.String("pachyderm"),
 			Values: pulumi.Map{
 				"deployTarget": pulumi.String("GOOGLE"),
 				"console": pulumi.Map{

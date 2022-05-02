@@ -21,6 +21,7 @@ type Spec struct {
 	PachdVersion     string
 	ConsoleVersion   string
 	NotebooksVersion string
+	HelmVersion      string
 	ValuesYAML       string
 }
 
