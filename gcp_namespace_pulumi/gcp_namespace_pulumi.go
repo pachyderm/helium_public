@@ -113,7 +113,7 @@ func (r *Runner) List() (*api.ListResponse, error) {
 func (r *Runner) IsExpired(i api.ID) (bool, error) {
 	log.SetReportCaller(true)
 	log.SetLevel(log.DebugLevel)
-	log.Infof("get request")
+	log.Infof("isExpired request")
 	//
 	stackName := string(i)
 	// we don't need a program since we're just getting stack outputs
@@ -132,8 +132,10 @@ func (r *Runner) IsExpired(i api.ID) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+	if outs["helium-expiry"].Value == nil {
+		return false, fmt.Errorf("expected stack output 'helium-expiry' not found for stack: %v", stackName)
+	}
 	log.Debugf("Expiry: %v", outs["helium-expiry"].Value.(string))
-
 	expiry, err := time.Parse(timeFormat, outs["helium-expiry"].Value.(string))
 	if err != nil {
 		return false, err
@@ -150,7 +152,7 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 
 	//type Spec struct {
 	//	Name             string
-	//	Expiry           time.Time
+	//	Expiry           string
 	//	PachdVersion     string
 	//	ConsoleVersion   string
 	//	NotebooksVersion string
@@ -169,7 +171,10 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 		stackName = util.Name()
 	}
 
-	expiry := req.Expiry
+	expiry, err := time.Parse(timeFormat, req.Expiry)
+	if err != nil {
+		return nil, err
+	}
 	if expiry.IsZero() {
 		expiry = time.Now().AddDate(0, 0, 1*3)
 		log.Debugf("Expiry: %v", expiry)
@@ -191,7 +196,7 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 
 	// deploy the stack
 	// we'll write all of the update logs to st	out so we can watch requests get processed
-	_, err = s.Up(ctx, optup.ProgressStreams(os.Stdout))
+	_, err = s.Up(ctx, optup.ProgressStreams(util.NewLogWriter(log.WithFields(log.Fields{"pulumi_op": "create", "stream": "stdout"}))))
 	if err != nil {
 		return nil, err
 	}
@@ -223,12 +228,14 @@ func (r *Runner) Destroy(i api.ID) error {
 	s.SetConfig(ctx, "gcp:zone", auto.ConfigValue{Value: "us-east1-b"})
 	// destroy the stack
 	// we'll write all of the logs to stdout so we can watch requests get processed
-	_, err = s.Destroy(ctx, optdestroy.ProgressStreams(os.Stdout))
+	//	_, err = s.Destroy(ctx, optdestroy.ProgressStreams(os.Stdout))
+	_, err = s.Destroy(ctx, optdestroy.ProgressStreams(util.NewLogWriter(log.WithFields(log.Fields{"pulumi_op": "destroy", "stream": "stdout"}))))
 	if err != nil {
 		return err
 	}
 
 	// delete the stack and all associated history and config
+	// Apparently unimplemented: optremov.ProgressStreams()
 	err = s.Workspace().RemoveStack(ctx, stackName)
 	if err != nil {
 		return err

@@ -48,6 +48,7 @@ func TestDeletionControllerLoop(t *testing.T) {
 	}
 }
 
+//
 //TODO: Setup proper pointers at some point
 //func TestPrewarm(t *testing.T) {
 //	want := &TestBackendRunner{
@@ -117,7 +118,7 @@ func (r *TestBackendRunner) Create(api.CreateRequest) (api.CreateResponse, error
 }
 
 //
-func (r *TestBackendRunner) Controller() []Controller {
+func (r *TestBackendRunner) Controller(ctx context.Context) []Controller {
 	return []Controller{
 		//r.PrewarmController,
 		r.DeletionController,

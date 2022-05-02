@@ -11,6 +11,23 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+const (
+	SECRET_PASSWORD        = "NotAGoodSecret"
+	SECRET_PASSWORD_HEADER = "X-Pach"
+)
+
+// Middleware function, which will be called for each request
+func AuthMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		token := r.Header.Get(SECRET_PASSWORD_HEADER)
+		if token == SECRET_PASSWORD {
+			next.ServeHTTP(w, r)
+		} else {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+		}
+	})
+}
+
 func ListRequest(w http.ResponseWriter, r *http.Request) {
 	gnp := &gcp_namespace_pulumi.Runner{}
 	w.Header().Set("Content-Type", "application/json")

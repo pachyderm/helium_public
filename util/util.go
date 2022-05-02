@@ -1,14 +1,36 @@
 package util
 
 import (
+
+	//	"os/exec"
+	"bufio"
 	"crypto/rand"
+	"io"
 	rando "math/rand"
+
+	log "github.com/sirupsen/logrus"
 )
 
 const (
 	randomStringOptions = "abcdefghijklmnopqrstuvwxyz0123456789"
 	randomStringLength  = 6
 )
+
+// newLogWriter returns an io.Writer that logs each full line written to it to the provided logrus
+// Entry.
+func NewLogWriter(l *log.Entry) io.Writer {
+	r, w := io.Pipe()
+	s := bufio.NewScanner(r)
+	go func() {
+		for s.Scan() {
+			l.Info(s.Text())
+		}
+		if err := s.Err(); err != nil {
+			l.WithError(err).Error("error scanning lines")
+		}
+	}()
+	return w
+}
 
 func Name() string {
 	return generateName() + "-" + randomString(randomStringLength)
