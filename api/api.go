@@ -22,7 +22,7 @@ type Spec struct {
 	ConsoleVersion   string
 	NotebooksVersion string
 	HelmVersion      string
-	ValuesYAML       string
+	//	ValuesYAML       string
 }
 
 type GetConnectionInfoRequest struct {

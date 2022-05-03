@@ -39,7 +39,19 @@ Checking expiry:
 ```shell
 curl -H "X-Pach: NotAGoodSecret"  localhost:2323/v1/api/workspace/example-workspace-id/expired
 ```
-Creating a new workspace:
+Creating a new workspace, the available options are:
+```golang
+type Spec struct {
+	Name             string
+	Expiry           string
+	PachdVersion     string
+	ConsoleVersion   string
+	NotebooksVersion string
+	HelmVersion      string
+	//	ValuesYAML       string
+}
+```
+Which can be used in a request like so:
 ```shell
 curl -X POST -H "X-Pach: NotAGoodSecret" -d '{"name": "example-workspace-02", "expiry": "2023-01-01"}'  localhost:2323/v1/api/workspace
 ```
