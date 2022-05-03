@@ -28,7 +28,7 @@ The response should look something like:
     "K8s": "gcloud container clusters get-credentials ci-cluster-b9c3629 --zone us-east1-b --project ***REMOVED***",
     "K8sNamespace": "example-workspace-id",
     "ConsoleURL": "https://example-workspace-id.***REMOVED***",
-    "NotebooksURL": "https://example-workspace-id.***REMOVED***",
+    "NotebooksURL": "https://jh-example-workspace-id.***REMOVED***",
     "Pachctl": "echo '{\"pachd_address\": \"grpc://34.74.249.170:30651\", \"source\": 2}' | tr -d \\ | pachctl config set context example-workspace-id --overwrite && pachctl config set active-context example-workspace-id"
   }
 }
