@@ -33,15 +33,13 @@ func init() {
 	ensurePlugins()
 }
 
-//
 const (
-	BackendName     = "gcp-namespace-pulumi"
-	StackNamePrefix = "sean-testing"
-	timeFormat      = "2006-01-02"
+	BackendName = "gcp-namespace-pulumi"
+	timeFormat  = "2006-01-02"
 )
 
 var (
-	project      = "pulumi_over_http"
+	project      = "helium"
 	clientSecret = os.Getenv("HELIUM_CLIENT_SECRET")
 	clientID     = os.Getenv("HELIUM_CLIENT_ID")
 	auth0Domain  = "https://***REMOVED***.auth0.com/"
@@ -68,21 +66,60 @@ func (r *Runner) GetConnectionInfo(i api.ID) (*api.GetConnectionInfoResponse, er
 		}
 		return nil, err
 	}
-	// fetch the outputs from the stack
-	outs, err := s.Outputs(ctx)
+
+	info, err := s.Info(ctx)
 	if err != nil {
 		return nil, err
 	}
-	pachdip := outs["pachdip"].Value.(map[string]interface{})["ip"].(string)
-	pachdAddress := fmt.Sprintf("echo '{\"pachd_address\": \"%v://%v:%v\", \"source\": 2}' | tr -d \\ | pachctl config set context %v --overwrite && pachctl config set active-context %v", "grpc", pachdip, "30651", outs["k8sNamespace"].Value.(string), outs["k8sNamespace"].Value.(string))
+	log.Debugf("info name: %v", info.Name)
+	log.Debugf("info current: %v", info.Current)
+	log.Debugf("info lastupdate: %v", info.LastUpdate)
+	log.Debugf("info UpdateInProgress: %v", info.UpdateInProgress)
+	//	log.Debugf("info ResourceCount: %v", info.ResourceCount)
+	log.Debugf("info URL: %v", info.URL)
 
-	return &api.GetConnectionInfoResponse{ConnectionInfo: api.ConnectionInfo{
-		K8s:          "gcloud container clusters get-credentials ci-cluster-b9c3629 --zone us-east1-b --project ***REMOVED***",
-		K8sNamespace: outs["k8sNamespace"].Value.(string),
-		ConsoleURL:   "https://" + outs["consoleUrl"].Value.(string),
-		NotebooksURL: "https://" + outs["juypterUrl"].Value.(string),
-		Pachctl:      pachdAddress,
-	}}, nil
+	if !info.UpdateInProgress {
+		// fetch the outputs from the stack
+		outs, err := s.Outputs(ctx)
+		if err != nil {
+			return nil, err
+		}
+		// Output is only set on success. If update is not in progess, and no outputs, we know it's in a failed state
+		status, ok := outs["status"].Value.(string)
+		if !ok {
+			return &api.GetConnectionInfoResponse{
+				Workspace: api.ConnectionInfo{
+					Status: "failed",
+					ID:     i,
+					K8s:    "gcloud container clusters get-credentials ***REMOVED*** --zone us-east1-b --project ***REMOVED***",
+					// Updates aren't supported, so first update is always accurate
+					PulumiURL: info.URL + "/updates/1",
+				},
+			}, nil
+		}
+		pachdip := outs["pachdip"].Value.(map[string]interface{})["ip"].(string)
+		pachdAddress := fmt.Sprintf("echo '{\"pachd_address\": \"%v://%v:%v\", \"source\": 2}' | tr -d \\ | pachctl config set context %v --overwrite && pachctl config set active-context %v", "grpc", pachdip, "30651", outs["k8sNamespace"].Value.(string), outs["k8sNamespace"].Value.(string))
+
+		return &api.GetConnectionInfoResponse{Workspace: api.ConnectionInfo{
+			Status:       status,
+			ID:           i,
+			K8s:          "gcloud container clusters get-credentials ***REMOVED*** --zone us-east1-b --project ***REMOVED***",
+			PulumiURL:    info.URL + "/updates/1",
+			K8sNamespace: outs["k8sNamespace"].Value.(string),
+			ConsoleURL:   "https://" + outs["consoleUrl"].Value.(string),
+			NotebooksURL: "https://" + outs["juypterUrl"].Value.(string),
+			GCSBucket:    outs["bucket"].Value.(string),
+			Pachctl:      pachdAddress,
+		}}, nil
+	}
+	return &api.GetConnectionInfoResponse{
+		Workspace: api.ConnectionInfo{
+			Status:    "creating",
+			ID:        i,
+			K8s:       "gcloud container clusters get-credentials ***REMOVED*** --zone us-east1-b --project ***REMOVED***",
+			PulumiURL: info.URL + "/updates/1",
+		},
+	}, nil
 }
 
 func (r *Runner) List() (*api.ListResponse, error) {
@@ -128,6 +165,14 @@ func (r *Runner) IsExpired(i api.ID) (bool, error) {
 		}
 		return false, err
 	}
+	info, err := s.Info(ctx)
+	if err != nil {
+		return false, err
+	}
+	// an update is currently ongoing, it can't be expired while actively updating
+	if info.UpdateInProgress {
+		return false, nil
+	}
 	// fetch the outputs from the stack
 	outs, err := s.Outputs(ctx)
 	if err != nil {
@@ -169,11 +214,8 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 	log.Debugf("ValuesYAML: %v", req.ValuesYAML)
 
 	helmchartVersion := req.HelmVersion
-
 	stackName := req.Name
-	if req.Name == "" {
-		stackName = util.Name()
-	}
+
 	var expiry time.Time
 	var err error
 	if req.Expiry != "" {
@@ -193,7 +235,7 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 	}
 	expiryStr := expiry.Format(timeFormat)
 
-	program := createPulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion)
+	program := createPulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML)
 
 	s, err := auto.NewStackInlineSource(ctx, stackName, project, program)
 	if err != nil {
@@ -206,6 +248,7 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 	// we'll write all of the update logs to st	out so we can watch requests get processed
 	_, err = s.Up(ctx, optup.ProgressStreams(util.NewLogWriter(log.WithFields(log.Fields{"pulumi_op": "create", "stream": "stdout"}))))
 	if err != nil {
+		s.SetConfig(ctx, "status", auto.ConfigValue{Value: "failed"})
 		return nil, err
 	}
 
@@ -279,9 +322,8 @@ func createEmptyPulumiProgram() pulumi.RunFunc {
 	}
 }
 
-func createPulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVersion, notebooksVersion string) pulumi.RunFunc {
+func createPulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVersion, notebooksVersion, valuesYaml string) pulumi.RunFunc {
 	return func(ctx *pulumi.Context) error {
-
 		slug := "pachyderm/ci-cluster/dev"
 		stackRef, _ := pulumi.NewStackReference(ctx, slug, nil)
 
@@ -430,16 +472,26 @@ func createPulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 			}
 		}
 
+		array := []pulumi.AssetOrArchiveInput{}
+		array = append(array, pulumi.AssetOrArchiveInput(pulumi.NewFileAsset(valuesYaml)))
+		// Pulumi helm release struct here:
+		//	ValueYamlFiles: pulumi.AssetOrArchiveArray(array), // pulumi.NewFileAsset("./metrics.yml"),
+
+		//	array.Index(pulumi.Int(0)) = pulumi.NewFileAsset("string")
+		//array := []pulumi.AssetInput{}
+		//array := pulumi.AssetInput(pulumi.NewFileAsset("string"))
 		corePach, err := helm.NewRelease(ctx, "pach-release", &helm.ReleaseArgs{
-			Atomic:        pulumi.Bool(true),
-			CleanupOnFail: pulumi.Bool(true),
-			Namespace:     namespace.Metadata.Elem().Name(),
+			//	Atomic:        pulumi.Bool(true),
+			//	CleanupOnFail: pulumi.Bool(true),
+			Timeout:   pulumi.Int(600),
+			Namespace: namespace.Metadata.Elem().Name(),
 			RepositoryOpts: helm.RepositoryOptsArgs{
 				Repo: pulumi.String("https://helm.***REMOVED***"), //TODO Use Chart files in Repo
 			},
-			Version: pulumi.String(helmChartVersion),
-			Chart:   pulumi.String("pachyderm"),
-			//	ValueYamlFiles: pulumi.NewFileAsset("./path.yml")
+			Version:        pulumi.String(helmChartVersion),
+			Chart:          pulumi.String("pachyderm"),
+			ValueYamlFiles: pulumi.AssetOrArchiveArray(array), // pulumi.NewFileAsset("./metrics.yml"),
+			//
 			Values: pulumi.Map{
 				"deployTarget": pulumi.String("GOOGLE"),
 				"console":      consoleValues,
@@ -477,6 +529,7 @@ func createPulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 			namespace := arr[0].(*string)
 			svc, err := corev1.GetService(ctx, "svc", pulumi.ID(fmt.Sprintf("%s/pachd-lb", *namespace)), nil)
 			if err != nil {
+				log.Errorf("error getting loadbalancer IP: %v", err)
 				return nil, err
 			}
 			return []interface{}{svc.Status.LoadBalancer().Ingress().Index(pulumi.Int(0)), svc.Metadata.Name().Elem()}, nil
@@ -498,9 +551,10 @@ func createPulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 			RepositoryOpts: helm.RepositoryOptsArgs{
 				Repo: pulumi.String("https://jupyterhub.github.io/helm-chart/"),
 			},
-			Atomic:        pulumi.Bool(true),
-			CleanupOnFail: pulumi.Bool(true),
-			Chart:         pulumi.String("jupyterhub"),
+			//		Atomic:        pulumi.Bool(true),
+			//		CleanupOnFail: pulumi.Bool(true),
+			//		Timeout:       pulumi.Int(900),
+			Chart: pulumi.String("jupyterhub"),
 			Values: pulumi.Map{
 				"singleuser": pulumi.Map{
 					"defaultUrl": pulumi.String("/lab"),
@@ -562,12 +616,10 @@ func createPulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 		}
 
 		arr := result.(pulumi.ArrayOutput)
+		ctx.Export("status", pulumi.String("ready"))
 		ctx.Export("pachdip", arr.Index(pulumi.Int(0)))
-		//		ctx.Export("testip", ipAddress)
 		ctx.Export("juypterUrl", juypterURL)
 		ctx.Export("consoleUrl", consoleUrl)
-		ctx.Export("pachdAddress", consoleUrl)
-		//ctx.Export("kubeConfig", kubeConfig)
 		ctx.Export("k8sNamespace", namespace.Metadata.Elem().Name())
 		ctx.Export("bucket", bucket.Name)
 		ctx.Export("helium-expiry", pulumi.String(expiry))

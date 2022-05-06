@@ -3,18 +3,26 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"net/http"
+	"os"
+	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/gorilla/schema"
 	"github.com/pachyderm/helium/api"
 	"github.com/pachyderm/helium/gcp_namespace_pulumi"
+	"github.com/pachyderm/helium/util"
 	log "github.com/sirupsen/logrus"
 )
 
 const (
-	SECRET_PASSWORD        = "NotAGoodSecret"
-	SECRET_PASSWORD_HEADER = "X-Pach"
+	SECRET_PASSWORD        = "Bearer ***REMOVED***"
+	SECRET_PASSWORD_HEADER = "Authorization"
 )
+
+var decoder = schema.NewDecoder()
 
 // Middleware function, which will be called for each request
 func AuthMiddleware(next http.Handler) http.Handler {
@@ -23,7 +31,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		if token == SECRET_PASSWORD {
 			next.ServeHTTP(w, r)
 		} else {
-			http.Error(w, "Forbidden", http.StatusForbidden)
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		}
 	})
 }
@@ -60,23 +68,68 @@ func GetConnInfoRequest(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(&res)
 }
 
+// TODO: deduplicate param handling logic between sync and async
 func CreateRequest(w http.ResponseWriter, r *http.Request) {
 	gnp := &gcp_namespace_pulumi.Runner{}
-	log.Debug("create handler")
-	w.Header().Set("Content-Type", "application/json")
 
-	var req *api.Spec
+	log.SetReportCaller(true)
+	log.SetLevel(log.DebugLevel)
+	log.Info("testing handler")
+
+	var spec api.Spec
 	var res *api.CreateResponse
 
-	err := json.NewDecoder(r.Body).Decode(&req)
+	err := r.ParseMultipartForm(32 << 20)
 	if err != nil {
-		log.Errorf("failed to parse create request: %v", err)
-		w.WriteHeader(400)
-		fmt.Fprintf(w, "failed to parse create request")
-		return
+		log.Errorf("Error parsing form: %v", err)
+	}
+	err = decoder.Decode(&spec, r.PostForm)
+	if err != nil {
+		log.Errorf("Error decoding form: %v", err)
 	}
 
-	res, err = gnp.Create(req)
+	file, _, err := r.FormFile("valuesYaml")
+	if err != nil {
+		if strings.Contains(err.Error(), "no such file") {
+			log.Debug("no file param")
+		} else {
+			w.WriteHeader(500)
+			fmt.Fprintf(w, "failed to upload file: %v", err)
+			log.Errorf("Error reading FormFile: %v", err)
+		}
+	}
+	if spec.Name == "" {
+		spec.Name = util.Name()
+	}
+
+	if file != nil {
+		f, err := os.CreateTemp("", "temp-values")
+		if err != nil {
+			w.WriteHeader(500)
+			fmt.Fprintf(w, "failed to upload file: %v", err)
+			log.Errorf("error creating temp file: %v", err)
+			return
+		}
+		defer os.Remove(f.Name())
+		defer f.Close()
+		_, err = io.Copy(f, file)
+		if err != nil {
+			w.WriteHeader(500)
+			fmt.Fprintf(w, "failed to upload file: %v", err)
+			log.Errorf("error copying file: %v", err)
+			return
+		}
+		content, err := ioutil.ReadFile(f.Name())
+		if err != nil {
+			w.WriteHeader(500)
+			fmt.Fprintf(w, "failed to upload file: %v", err)
+			log.Errorf("error copying file: %v", err)
+			return
+		}
+		log.Debugf("Content:\n%s", content)
+		spec.ValuesYAML = f.Name()
+	}
+	res, err = gnp.Create(&spec)
 	if err != nil {
 		w.WriteHeader(500)
 		fmt.Fprintf(w, "error creating stack")
@@ -84,8 +137,99 @@ func CreateRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Debugf("create req: %v", req)
+	log.Debugf("Returning Response: %v", res)
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(&res)
+}
+
+func AsyncCreationRequest(w http.ResponseWriter, r *http.Request) {
+	gnp := &gcp_namespace_pulumi.Runner{}
+
+	log.SetReportCaller(true)
+	log.SetLevel(log.DebugLevel)
+	log.Info("testing handler")
+
+	var spec api.Spec
+	var res *api.CreateResponse
+	var err error
+
+	err = r.ParseMultipartForm(32 << 20)
+	if err != nil {
+		log.Errorf("Error parsing form: %v", err)
+	}
+	err = decoder.Decode(&spec, r.PostForm)
+	if err != nil {
+		log.Errorf("Error decoding form: %v", err)
+	}
+
+	file, _, err := r.FormFile("valuesYaml")
+	if err != nil {
+		if strings.Contains(err.Error(), "no such file") {
+			log.Debug("no file param")
+		} else {
+			w.WriteHeader(500)
+			fmt.Fprintf(w, "failed to upload file: %v", err)
+			log.Errorf("Error reading FormFile: %v", err)
+		}
+	}
+	if spec.Name == "" {
+		spec.Name = util.Name()
+	}
+	res = &api.CreateResponse{api.ID(spec.Name)}
+	log.Debugf("Returning Response: %v", res)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(&res)
+
+	if f, ok := w.(http.Flusher); ok {
+		f.Flush()
+	}
+	var f *os.File
+	if file != nil {
+		f, err = os.CreateTemp("", "temp-values")
+		if err != nil {
+			w.WriteHeader(500)
+			fmt.Fprintf(w, "failed to upload file: %v", err)
+			log.Errorf("error creating temp file: %v", err)
+			return
+		}
+		_, err = io.Copy(f, file)
+		if err != nil {
+			w.WriteHeader(500)
+			fmt.Fprintf(w, "failed to upload file: %v", err)
+			log.Errorf("error copying file: %v", err)
+			return
+		}
+		content, err := ioutil.ReadFile(f.Name())
+		if err != nil {
+			w.WriteHeader(500)
+			fmt.Fprintf(w, "failed to upload file: %v", err)
+			log.Errorf("error copying file: %v", err)
+			return
+		}
+		log.Debugf("Content:\n%s", content)
+		spec.ValuesYAML = f.Name()
+	}
+
+	// TODO: This is a bit of a hack
+	// TODO: need to handle temp file being deleted before this is called because of the defers
+	go func(spec api.Spec, f *os.File) {
+		_, err = gnp.Create(&spec)
+		if err != nil {
+			log.Errorf("create handler: %v", err)
+			return
+		}
+		if f != nil {
+			defer os.Remove(f.Name())
+			defer f.Close()
+		}
+	}(spec, f)
+
+	//// TODO Delete comment
+	////res = &api.CreateResponse{api.ID(spec.Name)}
+	//
+	//log.Debugf("Returning Response: %v", res)
+	//w.Header().Set("Content-Type", "application/json")
+	//json.NewEncoder(w).Encode(&res)
 }
 
 func IsExpiredRequest(w http.ResponseWriter, r *http.Request) {

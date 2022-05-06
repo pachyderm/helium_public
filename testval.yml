@@ -1,0 +1,3 @@
+postgresql:
+  # Set to false if you are bringing your own PostgreSQL instance. PostgreSQL is a requirement for Pachyderm.
+  enabled: false
