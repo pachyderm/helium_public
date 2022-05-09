@@ -2,6 +2,7 @@ package backend
 
 import (
 	"context"
+	"os"
 
 	log "github.com/sirupsen/logrus"
 
@@ -57,9 +58,8 @@ type DeletionController interface {
 }
 
 func RunDeletionController(ctx context.Context, br DeletionController) error {
-	// For each registered Runner
-	//List()
 	//For each Pach, check Expiry. If true, call Delete
+	mode := os.Getenv("HELIUM_CONTROLPLANE_DELETE_ALL")
 	id, err := br.List()
 	if err != nil {
 		return err
@@ -70,7 +70,7 @@ func RunDeletionController(ctx context.Context, br DeletionController) error {
 			log.Errorf("expiry error: %v", err)
 			continue
 		}
-		if !b {
+		if b || mode == "True" {
 			log.Debugf("deletion controller destroying: %v", v)
 			br.Destroy(v)
 		}
