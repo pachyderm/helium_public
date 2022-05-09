@@ -37,9 +37,12 @@ type App struct {
 
 func (a *App) Initialize() {
 	a.Router = mux.NewRouter()
-
+	a.Router.HandleFunc("/", handlers.UIRootHandler)
 	a.Router.HandleFunc("/healthz", HealthCheckHandler)
-	a.Router.PathPrefix("/templates/").Handler(http.StripPrefix("/templates/", http.FileServer(http.Dir("templates"))))
+	a.Router.HandleFunc("/get/{workspaceId}", handlers.UIGetWorkspace)
+	a.Router.HandleFunc("/create", handlers.UICreation)
+	a.Router.HandleFunc("/list", handlers.UIListWorkspace)
+
 	// TODO: Fix auth for this
 	a.Router.HandleFunc("/testing", handlers.AsyncCreationRequest).Methods("POST")
 
@@ -69,13 +72,13 @@ func RunAPI() {
 
 func RunControlplane() {
 	for {
-		time.Sleep(60 * time.Second)
 		ctx := context.Background()
 		gnp := &gcp_namespace_pulumi.Runner{}
 		err := backend.RunDeletionController(ctx, gnp)
 		if err != nil {
 			log.Errorf("deletion controller: %v", err)
 		}
+		time.Sleep(60 * time.Second)
 	}
 }
 func HealthCheckHandler(w http.ResponseWriter, r *http.Request) {
