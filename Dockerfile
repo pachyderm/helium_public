@@ -29,6 +29,9 @@ RUN wget https://get.pulumi.com/releases/sdk/pulumi-v3.31.0-linux-x64.tar.gz
 RUN tar xvf pulumi-v3.31.0-linux-x64.tar.gz
 
 COPY --from=build /app/out /out
+COPY --from=build /app/root.py /root.py
+COPY --from=build /app/templates /templates
+
 ENV PATH "${HOME}/pulumi:$PATH"
 ENV HELIUM_MODE "API"
 
