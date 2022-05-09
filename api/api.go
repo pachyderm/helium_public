@@ -68,4 +68,5 @@ type ConnectionInfo struct {
 	NotebooksURL string
 	GCSBucket    string
 	Pachctl      string
+	Expiry       string
 }

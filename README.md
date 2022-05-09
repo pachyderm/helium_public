@@ -1,6 +1,6 @@
 This is still under active development, please expect breaking changes.
 
-At a very high level - this is a standardized API around provisioning pachyderm instances - using a variety of backends.  Right now there is only a single default backend - GCP_Namespace_Pulumi.  This backend provisons new workspaces in a single cluster in GCP, sharding by namespace.  Auth is enabled by default and setup with Auth0. By default all clusters are given an expiration of 3 days, and it's configurable up to 90 days.  The DeletionController which runs as part of the controlplane takes care of automatically deleting those environments which are expired.  
+At a very high level - this is a standardized API around provisioning pachyderm instances - using a variety of backends.  Right now there is only a single default backend - GCP_Namespace_Pulumi.  This backend provisons new workspaces in a single cluster in GCP, sharding by namespace.  Auth is enabled by default and setup with Auth0. By default all workspaces are given an expiration of 2 days, and it's configurable up to 90 days. So any workspaces will be deleted the following day at midnight. The DeletionController which runs as part of the controlplane takes care of automatically deleting those environments which are expired.  
 
 The different backends might be used to point at different clouds etc. (WIP note, backend and runner are still used somewhat interchangably throughout the codebase, switching to backend)
 
