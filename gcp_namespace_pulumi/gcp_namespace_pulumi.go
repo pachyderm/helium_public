@@ -241,27 +241,15 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 
 	s, err := auto.SelectStackInlineSource(ctx, stackName, project, program)
 	if err != nil {
-		log.Debugf("Error selecting stack: %v", err)
-		// if the stack doesn't already exist, 404
 		if auto.IsSelectStack404Error(err) {
-			log.Debug("AAAAAA")
 			s, err = auto.NewStackInlineSource(ctx, stackName, project, program)
 			if err != nil {
-				log.Debug("BBBBBBB")
 				return nil, err
 			}
 		} else {
-			log.Debug("CCCCCCCC")
 			return nil, err
 		}
-		log.Debug("DDDDDDDDD")
-		//	return nil, err
 	}
-
-	//s, err := auto.NewStackInlineSource(ctx, stackName, project, program)
-	//if err != nil {
-	//	return nil, err
-	//}
 	s.SetConfig(ctx, "gcp:project", auto.ConfigValue{Value: "***REMOVED***"})
 	s.SetConfig(ctx, "gcp:zone", auto.ConfigValue{Value: "us-east1-b"})
 
