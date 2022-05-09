@@ -1,3 +1,4 @@
+# Helium
 This is still under active development, please expect breaking changes.
 
 At a very high level - this is a standardized API around provisioning pachyderm instances - using a variety of backends.  Right now there is only a single default backend - GCP_Namespace_Pulumi.  This backend provisons new workspaces in a single cluster in GCP, sharding by namespace.  Auth is enabled by default and setup with Auth0. By default all workspaces are given an expiration of 2 days, and it's configurable up to 90 days. So any workspaces will be deleted the following day at midnight. The DeletionController which runs as part of the controlplane takes care of automatically deleting those environments which are expired.  
@@ -5,18 +6,18 @@ At a very high level - this is a standardized API around provisioning pachyderm 
 The different backends might be used to point at different clouds etc. (WIP note, backend and runner are still used somewhat interchangably throughout the codebase, switching to backend)
 
 
-#Running Instructions:
+## Running Instructions:
 
-When running locally, helium uses port 2323, like so: http://localhost:2323/v1/api/workspaces
+When running locally, helium uses port `2323`, like so: http://localhost:2323/v1/api/workspaces
 
-You will need the HELIUM_CLIENT_SECRET and HELIUM_CLIENT_ID environment variables set, both of which can be found in the Prod Auth0 tenant for Hub, with the name `Auth0 for Helium`: https://manage.auth0.com/dashboard/us/***REMOVED***/applications/cwqe6eu76gLVLvmcKsnJRE3tkJrwDIsG/settings
+You will need the `HELIUM_CLIENT_SECRET` and `HELIUM_CLIENT_ID` environment variables set, both of which can be found in the Prod Auth0 tenant for Hub, with the name `Auth0 for Helium`: https://manage.auth0.com/dashboard/us/***REMOVED***/applications/cwqe6eu76gLVLvmcKsnJRE3tkJrwDIsG/settings
 
 In order to run the API, in a terminal tab run:
 ```shell
 HELIUM_MODE=API HELIUM_CLIENT_SECRET="XXXXXXXXXXXX" HELIUM_CLIENT_ID="XXXXXXXXXX"   go run main.go
 ```
 
-#Usage
+## Usage
 
 
 The following command may be used to list workspaces:
@@ -99,5 +100,5 @@ The deletionController automatically queries every environment to check it's exp
 
 # Known Issues:
 
-The tests are broken, but shouldn't affect anything other than controllers
-The interface for backend is likely to change slightly, with controller() and register() most likely to shift.
+- The tests are broken, but shouldn't affect anything other than controllers
+- The interface for backend is likely to change slightly, with controller() and register() most likely to shift.
