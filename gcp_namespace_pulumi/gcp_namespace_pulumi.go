@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"time"
 
@@ -32,15 +33,13 @@ func init() {
 	ensurePlugins()
 }
 
-//
 const (
-	BackendName     = "gcp-namespace-pulumi"
-	StackNamePrefix = "sean-testing"
-	timeFormat      = "2006-01-02"
+	BackendName = "gcp-namespace-pulumi"
+	timeFormat  = "2006-01-02"
 )
 
 var (
-	project      = "pulumi_over_http"
+	project      = "helium"
 	clientSecret = os.Getenv("HELIUM_CLIENT_SECRET")
 	clientID     = os.Getenv("HELIUM_CLIENT_ID")
 	auth0Domain  = "https://***REMOVED***.auth0.com/"
@@ -67,21 +66,61 @@ func (r *Runner) GetConnectionInfo(i api.ID) (*api.GetConnectionInfoResponse, er
 		}
 		return nil, err
 	}
-	// fetch the outputs from the stack
-	outs, err := s.Outputs(ctx)
+
+	info, err := s.Info(ctx)
 	if err != nil {
 		return nil, err
 	}
-	pachdip := outs["pachdip"].Value.(map[string]interface{})["ip"].(string)
-	pachdAddress := fmt.Sprintf("echo '{\"pachd_address\": \"%v://%v:%v\", \"source\": 2}' | tr -d \\ | pachctl config set context %v --overwrite && pachctl config set active-context %v", "grpc", pachdip, "30651", outs["k8sNamespace"].Value.(string), outs["k8sNamespace"].Value.(string))
+	log.Debugf("info name: %v", info.Name)
+	log.Debugf("info current: %v", info.Current)
+	log.Debugf("info lastupdate: %v", info.LastUpdate)
+	log.Debugf("info UpdateInProgress: %v", info.UpdateInProgress)
+	//	log.Debugf("info ResourceCount: %v", info.ResourceCount)
+	log.Debugf("info URL: %v", info.URL)
 
-	return &api.GetConnectionInfoResponse{ConnectionInfo: api.ConnectionInfo{
-		K8s:          "gcloud container clusters get-credentials ci-cluster-b9c3629 --zone us-east1-b --project ***REMOVED***",
-		K8sNamespace: outs["k8sNamespace"].Value.(string),
-		ConsoleURL:   "https://" + outs["consoleUrl"].Value.(string),
-		NotebooksURL: "https://" + outs["juypterUrl"].Value.(string),
-		Pachctl:      pachdAddress,
-	}}, nil
+	if !info.UpdateInProgress {
+		// fetch the outputs from the stack
+		outs, err := s.Outputs(ctx)
+		if err != nil {
+			return nil, err
+		}
+		// Output is only set on success. If update is not in progess, and no outputs, we know it's in a failed state
+		status, ok := outs["status"].Value.(string)
+		if !ok {
+			return &api.GetConnectionInfoResponse{
+				Workspace: api.ConnectionInfo{
+					Status: "failed",
+					ID:     i,
+					K8s:    "gcloud container clusters get-credentials ***REMOVED*** --zone us-east1-b --project ***REMOVED***",
+					// Updates aren't supported, so first update is always accurate
+					PulumiURL: info.URL + "/updates/1",
+				},
+			}, nil
+		}
+		pachdip := outs["pachdip"].Value.(map[string]interface{})["ip"].(string)
+		pachdAddress := fmt.Sprintf("echo '{\"pachd_address\": \"%v://%v:%v\", \"source\": 2}' | tr -d \\ | pachctl config set context %v --overwrite && pachctl config set active-context %v", "grpc", pachdip, "30651", outs["k8sNamespace"].Value.(string), outs["k8sNamespace"].Value.(string))
+
+		return &api.GetConnectionInfoResponse{Workspace: api.ConnectionInfo{
+			Status:       status,
+			ID:           i,
+			K8s:          "gcloud container clusters get-credentials ***REMOVED*** --zone us-east1-b --project ***REMOVED***",
+			PulumiURL:    info.URL + "/updates/1",
+			K8sNamespace: outs["k8sNamespace"].Value.(string),
+			ConsoleURL:   "https://" + outs["consoleUrl"].Value.(string),
+			NotebooksURL: "https://" + outs["juypterUrl"].Value.(string),
+			GCSBucket:    outs["bucket"].Value.(string),
+			Expiry:       outs["helium-expiry"].Value.(string),
+			Pachctl:      pachdAddress,
+		}}, nil
+	}
+	return &api.GetConnectionInfoResponse{
+		Workspace: api.ConnectionInfo{
+			Status:    "creating",
+			ID:        i,
+			K8s:       "gcloud container clusters get-credentials ***REMOVED*** --zone us-east1-b --project ***REMOVED***",
+			PulumiURL: info.URL + "/updates/1",
+		},
+	}, nil
 }
 
 func (r *Runner) List() (*api.ListResponse, error) {
@@ -127,6 +166,14 @@ func (r *Runner) IsExpired(i api.ID) (bool, error) {
 		}
 		return false, err
 	}
+	info, err := s.Info(ctx)
+	if err != nil {
+		return false, err
+	}
+	// an update is currently ongoing, it can't be expired while actively updating
+	if info.UpdateInProgress {
+		return false, nil
+	}
 	// fetch the outputs from the stack
 	outs, err := s.Outputs(ctx)
 	if err != nil {
@@ -164,19 +211,24 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 	log.Debugf("PachdVersion: %v", req.PachdVersion)
 	log.Debugf("ConsoleVersion: %v", req.ConsoleVersion)
 	log.Debugf("NotebooksVersion: %v", req.NotebooksVersion)
+	log.Debugf("HelmVersion: %v", req.HelmVersion)
 	log.Debugf("ValuesYAML: %v", req.ValuesYAML)
 
+	helmchartVersion := req.HelmVersion
 	stackName := req.Name
-	if req.Name == "" {
-		stackName = util.Name()
+
+	var expiry time.Time
+	var err error
+	if req.Expiry != "" {
+		expiry, err = time.Parse(timeFormat, req.Expiry)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	expiry, err := time.Parse(timeFormat, req.Expiry)
-	if err != nil {
-		return nil, err
-	}
 	if expiry.IsZero() {
-		expiry = time.Now().AddDate(0, 0, 1*3)
+		// default to 1 day for expiry
+		expiry = time.Now().AddDate(0, 0, 1*2)
 		log.Debugf("Expiry: %v", expiry)
 	} else if expiry.After(time.Now().AddDate(0, 0, 1*90)) {
 		// Max expiration date is 90 days from now
@@ -185,12 +237,31 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 	}
 	expiryStr := expiry.Format(timeFormat)
 
-	program := createPulumiProgram(stackName, expiryStr)
+	program := createPulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML)
 
-	s, err := auto.NewStackInlineSource(ctx, stackName, project, program)
+	s, err := auto.SelectStackInlineSource(ctx, stackName, project, program)
 	if err != nil {
-		return nil, err
+		log.Debugf("Error selecting stack: %v", err)
+		// if the stack doesn't already exist, 404
+		if auto.IsSelectStack404Error(err) {
+			log.Debug("AAAAAA")
+			s, err = auto.NewStackInlineSource(ctx, stackName, project, program)
+			if err != nil {
+				log.Debug("BBBBBBB")
+				return nil, err
+			}
+		} else {
+			log.Debug("CCCCCCCC")
+			return nil, err
+		}
+		log.Debug("DDDDDDDDD")
+		//	return nil, err
 	}
+
+	//s, err := auto.NewStackInlineSource(ctx, stackName, project, program)
+	//if err != nil {
+	//	return nil, err
+	//}
 	s.SetConfig(ctx, "gcp:project", auto.ConfigValue{Value: "***REMOVED***"})
 	s.SetConfig(ctx, "gcp:zone", auto.ConfigValue{Value: "us-east1-b"})
 
@@ -198,6 +269,7 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 	// we'll write all of the update logs to st	out so we can watch requests get processed
 	_, err = s.Up(ctx, optup.ProgressStreams(util.NewLogWriter(log.WithFields(log.Fields{"pulumi_op": "create", "stream": "stdout"}))))
 	if err != nil {
+		s.SetConfig(ctx, "status", auto.ConfigValue{Value: "failed"})
 		return nil, err
 	}
 
@@ -271,9 +343,8 @@ func createEmptyPulumiProgram() pulumi.RunFunc {
 	}
 }
 
-func createPulumiProgram(id, expiry string) pulumi.RunFunc {
+func createPulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVersion, notebooksVersion, valuesYaml string) pulumi.RunFunc {
 	return func(ctx *pulumi.Context) error {
-
 		slug := "pachyderm/ci-cluster/dev"
 		stackRef, _ := pulumi.NewStackReference(ctx, slug, nil)
 
@@ -285,6 +356,8 @@ func createPulumiProgram(id, expiry string) pulumi.RunFunc {
 		if err != nil {
 			return err
 		}
+
+		//TODO handle stderr from Pulumi too
 
 		// TODO: Remove static IP address comments, didn't end up needing to utilize this functionality
 		//	static, err := compute.NewAddress(ctx, "static", nil)
@@ -352,25 +425,103 @@ func createPulumiProgram(id, expiry string) pulumi.RunFunc {
 		if err != nil {
 			return err
 		}
+		consoleValues := pulumi.Map{
+			"enabled": pulumi.Bool(true),
+			"config": pulumi.Map{
+				"oauthClientID":     pulumi.String("console"),
+				"oauthClientSecret": pulumi.String("***REMOVED***"), //# Autogenerated on install if blank
+				"graphqlPort":       pulumi.Int(4000),
+				"pachdAddress":      pulumi.String("pachd-peer:30653"),
+				"disableTelemetry":  pulumi.Bool(false), // # Disables analytics and error data collection
+			},
+		}
+		if consoleVersion != "" {
+			consoleValues = pulumi.Map{
+				"enabled": pulumi.Bool(true),
+				"image": pulumi.Map{
+					"tag": pulumi.String(consoleVersion),
+				},
+				"config": pulumi.Map{
+					"oauthClientID":     pulumi.String("console"),
+					"oauthClientSecret": pulumi.String("***REMOVED***"), //# Autogenerated on install if blank
+					"graphqlPort":       pulumi.Int(4000),
+					"pachdAddress":      pulumi.String("pachd-peer:30653"),
+					"disableTelemetry":  pulumi.Bool(false), // # Disables analytics and error data collection
+				},
+			}
+		}
 
+		pachdValues := pulumi.Map{
+			"externalService": pulumi.Map{
+				"enabled": pulumi.Bool(true),
+				//						"loadBalancerIP": ipAddress,
+				"apiGRPCPort":   pulumi.Int(30651), //Dynamic Value
+				"s3GatewayPort": pulumi.Int(30601), //Dynamic Value
+			},
+			"oauthClientSecret":    pulumi.String("***REMOVED***"),
+			"rootToken":            pulumi.String("***REMOVED***"),
+			"enterpriseSecret":     pulumi.String("***REMOVED***"),
+			"enterpriseLicenseKey": pulumi.String("***REMOVED***"), //Set in .circleci/config.yml
+			"storage": pulumi.Map{
+				"google": pulumi.Map{
+					"bucket": bucket.Name,
+				},
+				"tls": pulumi.Map{
+					"enabled":    pulumi.Bool(true),
+					"secretName": pulumi.String("wildcard-tls"),
+				},
+			},
+		}
+		if pachdVersion != "" {
+			pachdValues = pulumi.Map{
+				"image": pulumi.Map{
+					"tag": pulumi.String(pachdVersion),
+				},
+				"externalService": pulumi.Map{
+					"enabled": pulumi.Bool(true),
+					//						"loadBalancerIP": ipAddress,
+					"apiGRPCPort":   pulumi.Int(30651), //Dynamic Value
+					"s3GatewayPort": pulumi.Int(30601), //Dynamic Value
+				},
+				"oauthClientSecret":    pulumi.String("***REMOVED***"),
+				"rootToken":            pulumi.String("***REMOVED***"),
+				"enterpriseSecret":     pulumi.String("***REMOVED***"),
+				"enterpriseLicenseKey": pulumi.String("***REMOVED***"), //Set in .circleci/config.yml
+				"storage": pulumi.Map{
+					"google": pulumi.Map{
+						"bucket": bucket.Name,
+					},
+					"tls": pulumi.Map{
+						"enabled":    pulumi.Bool(true),
+						"secretName": pulumi.String("wildcard-tls"),
+					},
+				},
+			}
+		}
+
+		array := []pulumi.AssetOrArchiveInput{}
+		array = append(array, pulumi.AssetOrArchiveInput(pulumi.NewFileAsset(valuesYaml)))
 		corePach, err := helm.NewRelease(ctx, "pach-release", &helm.ReleaseArgs{
+			//Atomic:        pulumi.Bool(true),
+			//CleanupOnFail: pulumi.Bool(true),
+			Timeout:   pulumi.Int(600),
 			Namespace: namespace.Metadata.Elem().Name(),
 			RepositoryOpts: helm.RepositoryOptsArgs{
 				Repo: pulumi.String("https://helm.***REMOVED***"), //TODO Use Chart files in Repo
 			},
-			Chart: pulumi.String("pachyderm"),
+			Version:        pulumi.String(helmChartVersion),
+			Chart:          pulumi.String("pachyderm"),
+			ValueYamlFiles: pulumi.AssetOrArchiveArray(array), // pulumi.NewFileAsset("./metrics.yml"),
+			//
 			Values: pulumi.Map{
 				"deployTarget": pulumi.String("GOOGLE"),
-				"console": pulumi.Map{
-					"enabled": pulumi.Bool(true),
-					"config": pulumi.Map{
-						"oauthClientID":     pulumi.String("console"),
-						"oauthClientSecret": pulumi.String(""), //# Autogenerated on install if blank
-						"graphqlPort":       pulumi.Int(4000),
-						"pachdAddress":      pulumi.String("pachd-peer:30653"),
-						"disableTelemetry":  pulumi.Bool(false), // # Disables analytics and error data collection
+				"global": pulumi.Map{
+					"postgresql": pulumi.Map{
+						"postgresqlPassword":         pulumi.String("***REMOVED***"),
+						"postgresqlPostgresPassword": pulumi.String("***REMOVED***"),
 					},
 				},
+				"console": consoleValues,
 				"ingress": pulumi.Map{
 					"annotations": pulumi.Map{
 						"kubernetes.io/ingress.class":              pulumi.String("traefik"),
@@ -383,24 +534,7 @@ func createPulumiProgram(id, expiry string) pulumi.RunFunc {
 						"secretName": pulumi.String("wildcard-tls"), // Dynamic Value
 					},
 				},
-				"pachd": pulumi.Map{
-					"externalService": pulumi.Map{
-						"enabled": pulumi.Bool(true),
-						//						"loadBalancerIP": ipAddress,
-						"apiGRPCPort":   pulumi.Int(30651), //Dynamic Value
-						"s3GatewayPort": pulumi.Int(30601), //Dynamic Value
-					},
-					"enterpriseLicenseKey": pulumi.String("***REMOVED***"), //Set in .circleci/config.yml
-					"storage": pulumi.Map{
-						"google": pulumi.Map{
-							"bucket": bucket.Name,
-						},
-						"tls": pulumi.Map{
-							"enabled":    pulumi.Bool(true),
-							"secretName": pulumi.String("wildcard-tls"),
-						},
-					},
-				},
+				"pachd": pachdValues,
 				"oidc": pulumi.Map{
 					"mockIDP": pulumi.Bool(false),
 					"upstreamIDPs": pulumi.Array{
@@ -422,10 +556,20 @@ func createPulumiProgram(id, expiry string) pulumi.RunFunc {
 			namespace := arr[0].(*string)
 			svc, err := corev1.GetService(ctx, "svc", pulumi.ID(fmt.Sprintf("%s/pachd-lb", *namespace)), nil)
 			if err != nil {
+				log.Errorf("error getting loadbalancer IP: %v", err)
 				return nil, err
 			}
 			return []interface{}{svc.Status.LoadBalancer().Ingress().Index(pulumi.Int(0)), svc.Metadata.Name().Elem()}, nil
 		})
+		jupyterImage := "904d4965029e35a434c7c049a0470d9e4800c990"
+		if notebooksVersion != "" {
+			jupyterImage = notebooksVersion
+		}
+		file, err := ioutil.ReadFile("./root.py")
+		if err != nil {
+			return err
+		}
+		fileStr := string(file)
 
 		juypterURL := pulumi.String("jh-" + id + ".***REMOVED***")
 
@@ -434,15 +578,20 @@ func createPulumiProgram(id, expiry string) pulumi.RunFunc {
 			RepositoryOpts: helm.RepositoryOptsArgs{
 				Repo: pulumi.String("https://jupyterhub.github.io/helm-chart/"),
 			},
-			Chart: pulumi.String("jupyterhub"),
+			//Atomic:        pulumi.Bool(true),
+			//CleanupOnFail: pulumi.Bool(true),
+			Timeout: pulumi.Int(600),
+			Chart:   pulumi.String("jupyterhub"),
 			Values: pulumi.Map{
 				"singleuser": pulumi.Map{
 					"defaultUrl": pulumi.String("/lab"),
 					"image": pulumi.Map{
 						"name": pulumi.String("pachyderm/notebooks-user"),
-						"tag":  pulumi.String("904d4965029e35a434c7c049a0470d9e4800c990"),
+						"tag":  pulumi.String(jupyterImage),
 					},
-					//cloudMetadata
+					"cloudMetadata": pulumi.Map{
+						"blockWithIptables": pulumi.Bool(false),
+					},
 					"cmd":   pulumi.String("start-singleuser.sh"),
 					"uid":   pulumi.Int(0),
 					"fsGid": pulumi.Int(0),
@@ -471,6 +620,16 @@ func createPulumiProgram(id, expiry string) pulumi.RunFunc {
 					},
 				},
 				// "hub": pulumi.Map{},//Auth stuff
+				"prePuller": pulumi.Map{
+					"hook": pulumi.Map{
+						"enabled": pulumi.Bool(false),
+					},
+				},
+				"hub": pulumi.Map{
+					"extraConfig": pulumi.Map{
+						"podRoot": pulumi.String(fileStr),
+					},
+				},
 				"proxy": pulumi.Map{
 					"service": pulumi.Map{
 						"type": pulumi.String("ClusterIP"),
@@ -484,12 +643,10 @@ func createPulumiProgram(id, expiry string) pulumi.RunFunc {
 		}
 
 		arr := result.(pulumi.ArrayOutput)
+		ctx.Export("status", pulumi.String("ready"))
 		ctx.Export("pachdip", arr.Index(pulumi.Int(0)))
-		//		ctx.Export("testip", ipAddress)
 		ctx.Export("juypterUrl", juypterURL)
 		ctx.Export("consoleUrl", consoleUrl)
-		ctx.Export("pachdAddress", consoleUrl)
-		//ctx.Export("kubeConfig", kubeConfig)
 		ctx.Export("k8sNamespace", namespace.Metadata.Elem().Name())
 		ctx.Export("bucket", bucket.Name)
 		ctx.Export("helium-expiry", pulumi.String(expiry))

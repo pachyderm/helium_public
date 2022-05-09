@@ -70,7 +70,7 @@ func RunDeletionController(ctx context.Context, br DeletionController) error {
 			log.Errorf("expiry error: %v", err)
 			continue
 		}
-		if b {
+		if !b {
 			log.Debugf("deletion controller destroying: %v", v)
 			br.Destroy(v)
 		}

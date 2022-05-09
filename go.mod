@@ -5,6 +5,7 @@ go 1.17
 require (
 	github.com/google/go-cmp v0.5.7
 	github.com/gorilla/mux v1.8.0
+	github.com/gorilla/schema v1.2.0
 	github.com/pulumi/pulumi-gcp/sdk/v6 v6.18.0
 	github.com/pulumi/pulumi-kubernetes/sdk/v3 v3.18.2
 	github.com/pulumi/pulumi/sdk/v3 v3.28.0

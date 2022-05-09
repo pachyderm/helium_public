@@ -21,47 +21,66 @@ const (
 )
 
 func main() {
-	log.SetReportCaller(true)
-	log.SetLevel(log.DebugLevel)
-
-	// Mode handles whether or not we run as a controlplane or api server
 	mode := os.Getenv("HELIUM_MODE")
 	if mode == "API" {
-		router := mux.NewRouter()
-		router.HandleFunc("/healthz", HealthCheckHandler)
-
-		restRouter := router.PathPrefix("/v1/api").Subrouter()
-		restRouter.Use(handlers.AuthMiddleware)
-		restRouter.HandleFunc("/workspaces", handlers.ListRequest).Methods("GET")
-		restRouter.HandleFunc("/workspace", handlers.CreateRequest).Methods("POST")
-		restRouter.HandleFunc("/workspace/{workspaceId}", handlers.GetConnInfoRequest).Methods("GET")
-		restRouter.HandleFunc("/workspace/{workspaceId}", handlers.DeleteRequest).Methods("DELETE")
-		restRouter.HandleFunc("/workspace/{workspaceId}/expired", handlers.IsExpiredRequest).Methods("GET")
-		//
-		s := &http.Server{
-			Addr:    ":2323",
-			Handler: router,
-		}
-
-		log.Info("starting server on :2323")
-		log.Fatal(s.ListenAndServe())
+		RunAPI()
 	} else if mode == "CONTROLPLANE" {
-		// TODO: This should split into goroutines
-		for {
-			// TODO: set to 60 seconds
-			time.Sleep(5 * time.Second)
-			ctx := context.Background()
-			gnp := &gcp_namespace_pulumi.Runner{}
-			err := backend.RunDeletionController(ctx, gnp)
-			if err != nil {
-				log.Errorf("deletion controller: %v", err)
-			}
-		}
+		RunControlplane()
 	} else {
 		log.Fatal("unknown mode of operation, please set the env var HELIUM_MODE")
 	}
 }
 
+type App struct {
+	Router *mux.Router
+}
+
+func (a *App) Initialize() {
+	a.Router = mux.NewRouter()
+	a.Router.HandleFunc("/", handlers.UIRootHandler)
+	a.Router.HandleFunc("/healthz", HealthCheckHandler)
+	a.Router.HandleFunc("/get/{workspaceId}", handlers.UIGetWorkspace)
+	a.Router.HandleFunc("/create", handlers.UICreation)
+	a.Router.HandleFunc("/list", handlers.UIListWorkspace)
+
+	// TODO: Fix auth for this
+	a.Router.HandleFunc("/testing", handlers.AsyncCreationRequest).Methods("POST")
+
+	restRouter := a.Router.PathPrefix("/v1/api").Subrouter()
+	restRouter.Use(handlers.AuthMiddleware)
+	restRouter.HandleFunc("/workspaces", handlers.ListRequest).Methods("GET")
+	restRouter.HandleFunc("/workspace", handlers.CreateRequest).Methods("POST")
+	restRouter.HandleFunc("/workspace/{workspaceId}", handlers.GetConnInfoRequest).Methods("GET")
+	restRouter.HandleFunc("/workspace/{workspaceId}", handlers.DeleteRequest).Methods("DELETE")
+	restRouter.HandleFunc("/workspace/{workspaceId}/expired", handlers.IsExpiredRequest).Methods("GET")
+}
+
+func RunAPI() {
+	log.SetReportCaller(true)
+	log.SetLevel(log.DebugLevel)
+
+	app := App{}
+	app.Initialize()
+	s := &http.Server{
+		Addr:    ":2323",
+		Handler: app.Router,
+	}
+	//
+	log.Info("starting server on :2323")
+	log.Fatal(s.ListenAndServe())
+}
+
+func RunControlplane() {
+	for {
+		ctx := context.Background()
+		gnp := &gcp_namespace_pulumi.Runner{}
+		err := backend.RunDeletionController(ctx, gnp)
+		if err != nil {
+			log.Errorf("deletion controller: %v", err)
+		}
+		time.Sleep(60 * time.Second)
+	}
+}
 func HealthCheckHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)

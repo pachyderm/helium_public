@@ -16,12 +16,14 @@ type CreateResponse struct {
 }
 
 type Spec struct {
-	Name             string
-	Expiry           string
-	PachdVersion     string
-	ConsoleVersion   string
-	NotebooksVersion string
-	ValuesYAML       string
+	Name             string `schema:"name"`
+	Expiry           string `schema:"expiry"`
+	PachdVersion     string `schema:"pachdVersion"`
+	ConsoleVersion   string `schema:"consoleVersion"`
+	NotebooksVersion string `schema:"notebooksVersion"`
+	HelmVersion      string `schema:"helmVersion"`
+	// This should be an actual file upload
+	ValuesYAML string //schema:"valuesYaml" This one isn't handled by a schema directly
 }
 
 type GetConnectionInfoRequest struct {
@@ -30,7 +32,7 @@ type GetConnectionInfoRequest struct {
 }
 
 type GetConnectionInfoResponse struct {
-	ConnectionInfo ConnectionInfo
+	Workspace ConnectionInfo
 }
 
 type ListRequest struct {
@@ -55,10 +57,16 @@ type DeleteRequest struct {
 	ID ID
 }
 
+// TODO: Rename Workspace
 type ConnectionInfo struct {
+	ID           ID
+	Status       string
+	PulumiURL    string
 	K8s          string
 	K8sNamespace string
 	ConsoleURL   string
 	NotebooksURL string
+	GCSBucket    string
 	Pachctl      string
+	Expiry       string
 }
