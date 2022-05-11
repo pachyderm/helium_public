@@ -27,7 +27,7 @@ jobs:
           gcloud builds submit --region=global --tag gcr.io/***REMOVED***/github.com/pachyderm/helium .
       
       - run: |
-          HELIUM_DOCKER_IMAGE_DIGEST=$(gcloud container images describe gcr.io/***REMOVED***/github.com/pachyderm/helium:$env:GITHUB_SHA --format="value(image_summary.fully_qualified_digest)")
+          HELIUM_DOCKER_IMAGE_DIGEST=$(gcloud container images describe gcr.io/***REMOVED***/github.com/pachyderm/helium:latest --format="value(image_summary.fully_qualified_digest)")
 
       - run: |
           gh workflow run bump_helium_version.yml -f digest=$HELIUM_DOCKER_IMAGE_DIGEST --repo pachyderm/cluster-config
