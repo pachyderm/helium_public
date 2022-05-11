@@ -542,7 +542,7 @@ func createPulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 		result := pulumi.All(corePach.Status.Namespace()).ApplyT(func(r interface{}) ([]interface{}, error) {
 			arr := r.([]interface{})
 			namespace := arr[0].(*string)
-			svc, err := corev1.GetService(ctx, "svc", pulumi.ID(fmt.Sprintf("%s/pachd-lb", *namespace)), nil)
+			svc, err := corev1.GetService(ctx, "svc", pulumi.ID(fmt.Sprintf("%s/pachd-lb", *namespace)), nil, pulumi.Timeouts(&pulumi.CustomTimeouts{Create: "10m"}))
 			if err != nil {
 				log.Errorf("error getting loadbalancer IP: %v", err)
 				return nil, err
