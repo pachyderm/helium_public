@@ -339,6 +339,7 @@ func createEmptyPulumiProgram() pulumi.RunFunc {
 
 func createPulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVersion, notebooksVersion, valuesYaml string, cleanup2 bool) pulumi.RunFunc {
 	return func(ctx *pulumi.Context) error {
+
 		slug := "pachyderm/ci-cluster/dev"
 		stackRef, _ := pulumi.NewStackReference(ctx, slug, nil)
 
@@ -360,7 +361,7 @@ func createPulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 		}
 
 		//TODO Create Service account for each pach install and assign to bucket
-		defaultSA := compute.GetDefaultServiceAccountOutput(ctx, compute.GetDefaultServiceAccountOutputArgs{}, nil)
+		defaultSA := compute.GetDefaultServiceAccountOutput(ctx, compute.GetDefaultServiceAccountOutputArgs{Project: pulumi.String("***REMOVED***")}, nil)
 		if err != nil {
 			return err
 		}
