@@ -28,7 +28,7 @@
            <a href="https://helium.***REMOVED***/" class="block mt-4 lg:inline-block lg:mt-0 text-red-100 hover:text-white mr-4">
              Create
            </a>
-           <a href="https://github.com/pachyderm/helium/" class="block mt-4 lg:inline-block lg:mt-0 text-red-100 hover:text-white">
+           <a href="https://github.com/pachyderm/helium/" target="_blank" class="block mt-4 lg:inline-block lg:mt-0 text-red-100 hover:text-white">
              Github
            </a>
          </div>
@@ -59,7 +59,7 @@
                cursor-pointer
              "
          >
-         <a href={{.PulumiURL}}>Pulumi</a>
+         <a href={{.PulumiURL}} target="_blank">Pulumi</a>
          </button>
        <li>
        {{end}}
@@ -81,7 +81,7 @@
              cursor-pointer
            "
        >
-       <a href={{.ConsoleURL}}>Console</a>
+       <a href={{.ConsoleURL}} target="_blank">Console</a>
        </button>
        <li>
          <li class="py-2 px-2 border border-gray-200 w-full">
@@ -101,7 +101,7 @@
                cursor-pointer
              "
          >
-         <a href={{.NotebooksURL}}>Notebooks</a>
+         <a href={{.NotebooksURL}} target="_blank">Notebooks</a>
          </button>
          <li>
         <li class="text-2xl text-center px-6 py-6 border-b border-gray-200 w-full">Kubernetes Namespace: {{.K8sNamespace}}</li>

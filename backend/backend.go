@@ -3,6 +3,7 @@ package backend
 import (
 	"context"
 	"os"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 
@@ -68,15 +69,23 @@ func RunDeletionController(ctx context.Context, br DeletionController) error {
 	for _, v := range id.IDs {
 		b, err := br.IsExpired(v)
 		if err != nil {
-			//	if err strings.Contains("expected stack output 'helium-expiry' not found for stack") {
-			//		br.Remove(v)
-			//	}
-			log.Errorf("expiry error: %v", err)
-			continue
+			if strings.Contains(err.Error(), "expected stack output 'helium-expiry' not found for stack") {
+				log.Debugf("deletion controller destroying because expiry not found: %v", v)
+				err := br.Destroy(v)
+				if err != nil {
+					log.Errorf("deletion controller error destroying: %v", err)
+				}
+			} else {
+				log.Errorf("expiry error: %v", err)
+				continue
+			}
 		}
 		if b || deletionControllerMode == "True" {
 			log.Debugf("deletion controller destroying: %v", v)
-			br.Destroy(v)
+			err := br.Destroy(v)
+			if err != nil {
+				log.Errorf("deletion controller error destroying: %v", err)
+			}
 		}
 	}
 	return nil

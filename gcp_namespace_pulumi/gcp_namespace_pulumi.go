@@ -16,15 +16,12 @@ import (
 	helm "github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/helm/v3"
 	metav1 "github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/meta/v1"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
-	"github.com/pulumi/pulumi/sdk/v3/go/auto/optdestroy"
-	"github.com/pulumi/pulumi/sdk/v3/go/auto/optup"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/tokens"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/workspace"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 
 	"github.com/pachyderm/helium/api"
 	"github.com/pachyderm/helium/backend"
-	"github.com/pachyderm/helium/util"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -282,7 +279,7 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 
 	// deploy the stack
 	// we'll write all of the update logs to st	out so we can watch requests get processed
-	_, err = s.Up(ctx, optup.ProgressStreams(util.NewLogWriter(log.WithFields(log.Fields{"pulumi_op": "create", "stream": "stdout"}))))
+	_, err = s.Up(ctx)
 	if err != nil {
 		s.SetConfig(ctx, "status", auto.ConfigValue{Value: "failed"})
 		return nil, err
@@ -316,7 +313,7 @@ func (r *Runner) Destroy(i api.ID) error {
 	// destroy the stack
 	// we'll write all of the logs to stdout so we can watch requests get processed
 	//	_, err = s.Destroy(ctx, optdestroy.ProgressStreams(os.Stdout))
-	_, err = s.Destroy(ctx, optdestroy.ProgressStreams(util.NewLogWriter(log.WithFields(log.Fields{"pulumi_op": "destroy", "stream": "stdout"}))))
+	_, err = s.Destroy(ctx)
 	if err != nil {
 		return err
 	}
