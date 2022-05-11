@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/pulumi/pulumi-gcp/sdk/v6/go/gcp/compute"
@@ -232,22 +231,23 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 			return nil, err
 		}
 	}
-	var expiryDefault int
-	if expirationNumDays == "" {
-		expiryDefault = 1
-	} else {
-		expiryDefault, err = strconv.Atoi(expirationNumDays)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if expiryDefault == 0 {
-		expiryDefault = 1
-	}
+	//var expiryDefault int
+	//if expirationNumDays == "" {
+	//	expiryDefault = 1
+	//} else {
+	//	expiryDefault, err = strconv.Atoi(expirationNumDays)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//}
+	//if expiryDefault == 0 {
+	//	expiryDefault = 1
+	//}
 
 	if expiry.IsZero() {
 		// default to 1 day for expiry
-		expiry = time.Now().AddDate(0, 0, 1*expiryDefault)
+		expiry = time.Now().AddDate(0, 0, 1)
+		//expiry = time.Now().AddDate(0, 0, 1*expiryDefaul)
 		log.Debugf("Expiry: %v", expiry)
 	} else if expiry.After(time.Now().AddDate(0, 0, 1*90)) {
 		// Max expiration date is 90 days from now
@@ -257,7 +257,7 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 	expiryStr := expiry.Format(timeFormat)
 
 	cleanup := true
-	if req.CleanupOnFail != "False" {
+	if req.CleanupOnFail == "False" {
 		cleanup = false
 	}
 
@@ -334,7 +334,7 @@ func createEmptyPulumiProgram() pulumi.RunFunc {
 	}
 }
 
-func createPulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVersion, notebooksVersion, valuesYaml string, cleanup bool) pulumi.RunFunc {
+func createPulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVersion, notebooksVersion, valuesYaml string, cleanup2 bool) pulumi.RunFunc {
 	return func(ctx *pulumi.Context) error {
 		slug := "pachyderm/ci-cluster/dev"
 		stackRef, _ := pulumi.NewStackReference(ctx, slug, nil)
@@ -486,8 +486,8 @@ func createPulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 		array := []pulumi.AssetOrArchiveInput{}
 		array = append(array, pulumi.AssetOrArchiveInput(pulumi.NewFileAsset(valuesYaml)))
 		corePach, err := helm.NewRelease(ctx, "pach-release", &helm.ReleaseArgs{
-			Atomic:        pulumi.Bool(cleanup),
-			CleanupOnFail: pulumi.Bool(cleanup),
+			Atomic:        pulumi.Bool(cleanup2),
+			CleanupOnFail: pulumi.Bool(cleanup2),
 			Timeout:       pulumi.Int(600),
 			Namespace:     namespace.Metadata.Elem().Name(),
 			RepositoryOpts: helm.RepositoryOptsArgs{
@@ -562,8 +562,8 @@ func createPulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 			RepositoryOpts: helm.RepositoryOptsArgs{
 				Repo: pulumi.String("https://jupyterhub.github.io/helm-chart/"),
 			},
-			Atomic:        pulumi.Bool(cleanup),
-			CleanupOnFail: pulumi.Bool(cleanup),
+			Atomic:        pulumi.Bool(cleanup2),
+			CleanupOnFail: pulumi.Bool(cleanup2),
 			Timeout:       pulumi.Int(600),
 			Chart:         pulumi.String("jupyterhub"),
 			Values: pulumi.Map{

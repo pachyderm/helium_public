@@ -92,7 +92,6 @@ func AsyncCreationRequest(w http.ResponseWriter, r *http.Request) {
 	log.Info("testing handler")
 
 	var spec api.Spec
-	var res *api.CreateResponse
 	var err error
 
 	err = r.ParseMultipartForm(32 << 20)
@@ -116,14 +115,6 @@ func AsyncCreationRequest(w http.ResponseWriter, r *http.Request) {
 	}
 	if spec.Name == "" {
 		spec.Name = util.Name()
-	}
-	res = &api.CreateResponse{api.ID(spec.Name)}
-	log.Debugf("Returning Response: %v", res)
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(&res)
-	// TODO: probably don't need to flush manually now that async is fully implemented
-	if f, ok := w.(http.Flusher); ok {
-		f.Flush()
 	}
 	var f *os.File
 	if file != nil {
