@@ -14,6 +14,8 @@ const (
 	WorkspacePrewarmCount = 2
 )
 
+var deletionControllerMode string = os.Getenv("HELIUM_CONTROLPLANE_DELETE_ALL")
+
 type Name string
 
 type Controller func(context.Context) error
@@ -59,7 +61,6 @@ type DeletionController interface {
 
 func RunDeletionController(ctx context.Context, br DeletionController) error {
 	//For each Pach, check Expiry. If true, call Delete
-	mode := os.Getenv("HELIUM_CONTROLPLANE_DELETE_ALL")
 	id, err := br.List()
 	if err != nil {
 		return err
@@ -67,10 +68,13 @@ func RunDeletionController(ctx context.Context, br DeletionController) error {
 	for _, v := range id.IDs {
 		b, err := br.IsExpired(v)
 		if err != nil {
+			//	if err strings.Contains("expected stack output 'helium-expiry' not found for stack") {
+			//		br.Remove(v)
+			//	}
 			log.Errorf("expiry error: %v", err)
 			continue
 		}
-		if b || mode == "True" {
+		if b || deletionControllerMode == "True" {
 			log.Debugf("deletion controller destroying: %v", v)
 			br.Destroy(v)
 		}

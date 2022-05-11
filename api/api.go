@@ -22,6 +22,7 @@ type Spec struct {
 	ConsoleVersion   string `schema:"consoleVersion"`
 	NotebooksVersion string `schema:"notebooksVersion"`
 	HelmVersion      string `schema:"helmVersion"`
+	CleanupOnFail    string `schema:"cleanupOnFail"`
 	// This should be an actual file upload
 	ValuesYAML string //schema:"valuesYaml" This one isn't handled by a schema directly
 }
@@ -61,12 +62,14 @@ type DeleteRequest struct {
 type ConnectionInfo struct {
 	ID           ID
 	Status       string
+	LastUpdated  string
 	PulumiURL    string
 	K8s          string
 	K8sNamespace string
 	ConsoleURL   string
 	NotebooksURL string
 	GCSBucket    string
+	PachdIp      string
 	Pachctl      string
 	Expiry       string
 }

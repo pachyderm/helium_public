@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/pulumi/pulumi-gcp/sdk/v6/go/gcp/compute"
@@ -39,10 +40,11 @@ const (
 )
 
 var (
-	project      = "helium"
-	clientSecret = os.Getenv("HELIUM_CLIENT_SECRET")
-	clientID     = os.Getenv("HELIUM_CLIENT_ID")
-	auth0Domain  = "https://***REMOVED***.auth0.com/"
+	project           = "helium"
+	clientSecret      = os.Getenv("HELIUM_CLIENT_SECRET")
+	clientID          = os.Getenv("HELIUM_CLIENT_ID")
+	expirationNumDays = os.Getenv("HELIUM_DEFAULT_EXPIRATION_DAYS")
+	auth0Domain       = "https://***REMOVED***.auth0.com/"
 )
 
 type Runner struct {
@@ -93,7 +95,9 @@ func (r *Runner) GetConnectionInfo(i api.ID) (*api.GetConnectionInfoResponse, er
 					ID:     i,
 					K8s:    "gcloud container clusters get-credentials ***REMOVED*** --zone us-east1-b --project ***REMOVED***",
 					// Updates aren't supported, so first update is always accurate
-					PulumiURL: info.URL + "/updates/1",
+					// TODO: ^That isn't true anymore
+					PulumiURL:   info.URL + "/updates/1",
+					LastUpdated: info.LastUpdate,
 				},
 			}, nil
 		}
@@ -105,20 +109,23 @@ func (r *Runner) GetConnectionInfo(i api.ID) (*api.GetConnectionInfoResponse, er
 			ID:           i,
 			K8s:          "gcloud container clusters get-credentials ***REMOVED*** --zone us-east1-b --project ***REMOVED***",
 			PulumiURL:    info.URL + "/updates/1",
+			LastUpdated:  info.LastUpdate,
 			K8sNamespace: outs["k8sNamespace"].Value.(string),
 			ConsoleURL:   "https://" + outs["consoleUrl"].Value.(string),
 			NotebooksURL: "https://" + outs["juypterUrl"].Value.(string),
 			GCSBucket:    outs["bucket"].Value.(string),
 			Expiry:       outs["helium-expiry"].Value.(string),
+			PachdIp:      "grpc://" + pachdip + ":30651",
 			Pachctl:      pachdAddress,
 		}}, nil
 	}
 	return &api.GetConnectionInfoResponse{
 		Workspace: api.ConnectionInfo{
-			Status:    "creating",
-			ID:        i,
-			K8s:       "gcloud container clusters get-credentials ***REMOVED*** --zone us-east1-b --project ***REMOVED***",
-			PulumiURL: info.URL + "/updates/1",
+			Status:      "creating",
+			ID:          i,
+			K8s:         "gcloud container clusters get-credentials ***REMOVED*** --zone us-east1-b --project ***REMOVED***",
+			PulumiURL:   info.URL + "/updates/1",
+			LastUpdated: info.LastUpdate,
 		},
 	}, nil
 }
@@ -180,7 +187,8 @@ func (r *Runner) IsExpired(i api.ID) (bool, error) {
 		return false, err
 	}
 	if outs["helium-expiry"].Value == nil {
-		return false, fmt.Errorf("expected stack output 'helium-expiry' not found for stack: %v", stackName)
+		log.Warnf("expected stack output 'helium-expiry' not found for stack: %v", stackName)
+		return false, nil
 	}
 	log.Debugf("Expiry: %v", outs["helium-expiry"].Value.(string))
 	expiry, err := time.Parse(timeFormat, outs["helium-expiry"].Value.(string))
@@ -204,6 +212,7 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 	//	ConsoleVersion   string
 	//	NotebooksVersion string
 	//	ValuesYAML       string
+	//  CleanupOnFail    string
 	//}
 
 	log.Debugf("Name: %v", req.Name)
@@ -212,6 +221,7 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 	log.Debugf("ConsoleVersion: %v", req.ConsoleVersion)
 	log.Debugf("NotebooksVersion: %v", req.NotebooksVersion)
 	log.Debugf("HelmVersion: %v", req.HelmVersion)
+	log.Debugf("CleanupOnFail: %v", req.CleanupOnFail)
 	log.Debugf("ValuesYAML: %v", req.ValuesYAML)
 
 	helmchartVersion := req.HelmVersion
@@ -225,10 +235,22 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 			return nil, err
 		}
 	}
+	var expiryDefault int
+	if expirationNumDays == "" {
+		expiryDefault = 1
+	} else {
+		expiryDefault, err = strconv.Atoi(expirationNumDays)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if expiryDefault == 0 {
+		expiryDefault = 1
+	}
 
 	if expiry.IsZero() {
 		// default to 1 day for expiry
-		expiry = time.Now().AddDate(0, 0, 1*2)
+		expiry = time.Now().AddDate(0, 0, 1*expiryDefault)
 		log.Debugf("Expiry: %v", expiry)
 	} else if expiry.After(time.Now().AddDate(0, 0, 1*90)) {
 		// Max expiration date is 90 days from now
@@ -237,7 +259,12 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 	}
 	expiryStr := expiry.Format(timeFormat)
 
-	program := createPulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML)
+	cleanup := true
+	if req.CleanupOnFail != "False" {
+		cleanup = false
+	}
+
+	program := createPulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML, cleanup)
 
 	s, err := auto.SelectStackInlineSource(ctx, stackName, project, program)
 	if err != nil {
@@ -304,34 +331,13 @@ func (r *Runner) Destroy(i api.ID) error {
 	return nil
 }
 
-func (r *Runner) Register() *api.CreateRequest {
-	return &api.CreateRequest{ApiDefaultRequest: api.ApiDefaultRequest{Backend: BackendName}}
-}
-
-// func New() []backend.Controller { //[]Somethings
-// 	r.Name = BackendName
-// 	return []backend.Controller{
-// 		r.DeletionController,
-// 	}
-// }
-
-func (r *Runner) Controller(ctx context.Context) []backend.Controller {
-	return []backend.Controller{
-		r.DeletionController,
-	}
-}
-
-func (r *Runner) DeletionController(ctx context.Context) error {
-	return backend.RunDeletionController(ctx, r)
-}
-
 func createEmptyPulumiProgram() pulumi.RunFunc {
 	return func(ctx *pulumi.Context) error {
 		return nil
 	}
 }
 
-func createPulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVersion, notebooksVersion, valuesYaml string) pulumi.RunFunc {
+func createPulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVersion, notebooksVersion, valuesYaml string, cleanup bool) pulumi.RunFunc {
 	return func(ctx *pulumi.Context) error {
 		slug := "pachyderm/ci-cluster/dev"
 		stackRef, _ := pulumi.NewStackReference(ctx, slug, nil)
@@ -345,16 +351,9 @@ func createPulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 			return err
 		}
 
-		//TODO handle stderr from Pulumi too
-
-		// TODO: Remove static IP address comments, didn't end up needing to utilize this functionality
-		//	static, err := compute.NewAddress(ctx, "static", nil)
-		//	if err != nil {
-		//		return err
-		//	}
-
 		bucket, err := storage.NewBucket(ctx, "pach-bucket", &storage.BucketArgs{
-			Location: pulumi.String("US"),
+			Location:     pulumi.String("US"),
+			ForceDestroy: pulumi.Bool(true),
 		})
 		if err != nil {
 			return err
@@ -490,10 +489,10 @@ func createPulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 		array := []pulumi.AssetOrArchiveInput{}
 		array = append(array, pulumi.AssetOrArchiveInput(pulumi.NewFileAsset(valuesYaml)))
 		corePach, err := helm.NewRelease(ctx, "pach-release", &helm.ReleaseArgs{
-			//Atomic:        pulumi.Bool(true),
-			//CleanupOnFail: pulumi.Bool(true),
-			Timeout:   pulumi.Int(600),
-			Namespace: namespace.Metadata.Elem().Name(),
+			Atomic:        pulumi.Bool(cleanup),
+			CleanupOnFail: pulumi.Bool(cleanup),
+			Timeout:       pulumi.Int(600),
+			Namespace:     namespace.Metadata.Elem().Name(),
 			RepositoryOpts: helm.RepositoryOptsArgs{
 				Repo: pulumi.String("https://helm.***REMOVED***"), //TODO Use Chart files in Repo
 			},
@@ -566,10 +565,10 @@ func createPulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 			RepositoryOpts: helm.RepositoryOptsArgs{
 				Repo: pulumi.String("https://jupyterhub.github.io/helm-chart/"),
 			},
-			//Atomic:        pulumi.Bool(true),
-			//CleanupOnFail: pulumi.Bool(true),
-			Timeout: pulumi.Int(600),
-			Chart:   pulumi.String("jupyterhub"),
+			Atomic:        pulumi.Bool(cleanup),
+			CleanupOnFail: pulumi.Bool(cleanup),
+			Timeout:       pulumi.Int(600),
+			Chart:         pulumi.String("jupyterhub"),
 			Values: pulumi.Map{
 				"singleuser": pulumi.Map{
 					"defaultUrl": pulumi.String("/lab"),
