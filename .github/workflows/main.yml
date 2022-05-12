@@ -27,7 +27,16 @@ jobs:
       - run: |
           HELIUM_DOCKER_IMAGE_DIGEST=$(gcloud container images describe gcr.io/***REMOVED***/github.com/pachyderm/helium:latest --format="value(image_summary.fully_qualified_digest)")
 
+      - name: Pull Versionbump
+        run: |
+            mkdir -p $GITHUB_WORKSPACE/bin
+            wget -O $GITHUB_WORKSPACE/bin/version-bump https://github.com/pachyderm/version-bump/releases/download/v0.0.3/version-bump-amd64-v0.0.3
+            chmod a+x $GITHUB_WORKSPACE/bin/version-bump 
+            echo "$GITHUB_WORKSPACE/bin" >> $GITHUB_PATH
+
       - run: |
-          gh workflow run bump_helium_version.yml -f digest=$HELIUM_DOCKER_IMAGE_DIGEST --repo pachyderm/cluster-config
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}
+          version-bump --owner=pachyderm --repo=cluster-config --file=argocd/workloads/production/helium/deployment.yaml --branch=master --location=spec.templates.spec.containers.[name="helium"].image --replacement=${HELIUM_DOCKER_IMAGE_DIGEST} --author-name=gha --author-email=gha@pachops.com --message="bump helium version"
+
+      - run: |
+          version-bump --owner=pachyderm --repo=cluster-config --file=argocd/workloads/production/helium/cp-deployment.yaml --branch=master --location=spec.templates.spec.containers.[name="helium-cp"].image --replacement=${HELIUM_DOCKER_IMAGE_DIGEST} --author-name=gha --author-email=gha@pachops.com --message="bump helium-cp version"
+
