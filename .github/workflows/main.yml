@@ -25,6 +25,7 @@ jobs:
           gcloud builds submit \
               --quiet \
               --region=global \
+              --timeout=15m \
               --tag "gcr.io/***REMOVED***/github.com/pachyderm/helium:$GITHUB_SHA"
       
       - run: |
