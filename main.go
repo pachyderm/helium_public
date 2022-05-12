@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
 	"time"
 
 	"github.com/getsentry/sentry-go"
@@ -85,6 +86,12 @@ func main() {
 	log.SetReportCaller(true)
 
 	mode := os.Getenv("HELIUM_MODE")
+	// TODO: // HACK:
+	cmd := exec.Command("gcloud auth login --cred-file=/var/secrets/google/key.json")
+	err := cmd.Run()
+	if err != nil {
+		log.Fatal(err)
+	}
 	if mode == "API" {
 		RunAPI()
 	} else if mode == "CONTROLPLANE" {
