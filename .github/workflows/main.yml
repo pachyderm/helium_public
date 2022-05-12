@@ -22,7 +22,10 @@ jobs:
         run: 'gcloud info'
 
       - run: |
-          gcloud builds submit --region=global --tag gcr.io/***REMOVED***/github.com/pachyderm/helium .
+          gcloud builds submit \
+              --quiet \
+              --region=global \
+              --tag "gcr.io/***REMOVED***/github.com/pachyderm/helium:$GITHUB_SHA"
       
       - run: |
           HELIUM_DOCKER_IMAGE_DIGEST=$(gcloud container images describe gcr.io/***REMOVED***/github.com/pachyderm/helium:latest --format="value(image_summary.fully_qualified_digest)")
