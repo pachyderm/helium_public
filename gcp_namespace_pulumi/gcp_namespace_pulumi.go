@@ -365,7 +365,7 @@ func createPulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 			return err
 		}
 
-		log.Warnf("Service Account: %#v", defaultSA)
+		log.Debugf("Service Account: %v", defaultSA.Email())
 
 		_, err = storage.NewBucketIAMMember(ctx, "bucket-role", &storage.BucketIAMMemberArgs{
 			Bucket: bucket.Name,
