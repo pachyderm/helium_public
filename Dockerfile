@@ -23,10 +23,18 @@ RUN apt update -y && apt install -y \
     git \
     jq \
     wget \
+    curl \
+    python \
     && rm -rf /var/lib/apt/lists/*
 
 RUN wget https://get.pulumi.com/releases/sdk/pulumi-v3.31.0-linux-x64.tar.gz
 RUN tar xvf pulumi-v3.31.0-linux-x64.tar.gz
+
+RUN curl https://dl.google.com/dl/cloudsdk/release/google-cloud-sdk.tar.gz > /tmp/google-cloud-sdk.tar.gz
+RUN mkdir -p /usr/local/gcloud \
+  && tar -C /usr/local/gcloud -xvf /tmp/google-cloud-sdk.tar.gz \
+  && /usr/local/gcloud/google-cloud-sdk/install.sh
+ENV PATH $PATH:/usr/local/gcloud/google-cloud-sdk/bin
 
 COPY --from=build /app/out /out
 COPY --from=build /app/root.py /root.py
