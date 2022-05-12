@@ -87,7 +87,7 @@ func main() {
 
 	mode := os.Getenv("HELIUM_MODE")
 	// TODO: // HACK:
-	cmd := exec.Command("gcloud auth login --cred-file=/var/secrets/google/key.json")
+	cmd := exec.Command("gcloud", "auth", "login", "--cred-file=/var/secrets/google/key.json")
 	err := cmd.Run()
 	if err != nil {
 		log.Fatal(err)
