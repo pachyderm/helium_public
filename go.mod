@@ -8,7 +8,7 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/schema v1.2.0
 	github.com/pulumi/pulumi-gcp/sdk/v6 v6.23.0
-	github.com/pulumi/pulumi-kubernetes/sdk/v3 v3.19.1
+	github.com/pulumi/pulumi-kubernetes/sdk/v3 v3.18.2
 	github.com/pulumi/pulumi/sdk/v3 v3.32.1
 	github.com/sirupsen/logrus v1.8.1
 )
