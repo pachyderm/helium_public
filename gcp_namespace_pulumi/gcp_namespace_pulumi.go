@@ -365,6 +365,8 @@ func createPulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 			return err
 		}
 
+		log.Warnf("Service Account: %#v", defaultSA)
+
 		_, err = storage.NewBucketIAMMember(ctx, "bucket-role", &storage.BucketIAMMemberArgs{
 			Bucket: bucket.Name,
 			Role:   pulumi.String("roles/storage.admin"),
