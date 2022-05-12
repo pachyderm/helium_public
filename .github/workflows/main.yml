@@ -26,7 +26,7 @@ jobs:
               --quiet \
               --region=global \
               --timeout=15m \
-              --tag "gcr.io/***REMOVED***/github.com/pachyderm/helium .
+              --tag "gcr.io/***REMOVED***/github.com/pachyderm/helium" .
       
       - run: |
           HELIUM_DOCKER_IMAGE_DIGEST=$(gcloud container images describe gcr.io/***REMOVED***/github.com/pachyderm/helium:latest --format="value(image_summary.fully_qualified_digest)")
