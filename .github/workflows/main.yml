@@ -27,10 +27,6 @@ jobs:
               --region=global \
               --timeout=15m \
               --tag "gcr.io/***REMOVED***/github.com/pachyderm/helium" .
-      
-      - run: |
-          HELIUM_DOCKER_IMAGE_DIGEST=$(gcloud container images describe gcr.io/***REMOVED***/github.com/pachyderm/helium:latest --format="value(image_summary.fully_qualified_digest)")
-          echo $HELIUM_DOCKER_IMAGE_DIGEST
 
       - name: Pull Versionbump
         run: |
@@ -39,9 +35,11 @@ jobs:
             chmod a+x $GITHUB_WORKSPACE/bin/version-bump 
             echo "$GITHUB_WORKSPACE/bin" >> $GITHUB_PATH
 
-      - run: |
+      - name: Update cluster config repo
+        run: |
+          HELIUM_DOCKER_IMAGE_DIGEST=$(gcloud container images describe gcr.io/***REMOVED***/github.com/pachyderm/helium:latest --format="value(image_summary.fully_qualified_digest)")
+          echo $HELIUM_DOCKER_IMAGE_DIGEST
           version-bump --owner=pachyderm --repo=cluster-config --file=argocd/workloads/production/helium/deployment.yaml --branch=master --location=spec.template.spec.containers.[name=helium].image --replacement=$HELIUM_DOCKER_IMAGE_DIGEST --author-name=***REMOVED*** --author-email=buildbot@***REMOVED*** --token=${{ secrets.GH_TOKEN }} --message="bump helium version"
-
-      - run: |
           version-bump --owner=pachyderm --repo=cluster-config --file=argocd/workloads/production/helium/cp-deployment.yaml --branch=master --location=spec.template.spec.containers.[name=helium-cp].image --replacement=$HELIUM_DOCKER_IMAGE_DIGEST --author-name=***REMOVED*** --author-email=buildbot@***REMOVED*** --token=${{ secrets.GH_TOKEN }} --message="bump helium-cp version"
 
+          
