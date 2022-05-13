@@ -53,7 +53,7 @@ type Runner struct {
 func (r *Runner) GetConnectionInfo(i api.ID) (*api.GetConnectionInfoResponse, error) {
 	log.SetReportCaller(true)
 	log.SetLevel(log.DebugLevel)
-	log.Infof("get request")
+	log.WithField("backend", "gcp_pulumi").Debugf("Get Info")
 
 	stackName := string(i)
 	// we don't need a program since we're just getting stack outputs
@@ -72,12 +72,15 @@ func (r *Runner) GetConnectionInfo(i api.ID) (*api.GetConnectionInfoResponse, er
 	if err != nil {
 		return nil, err
 	}
-	log.Debugf("info name: %v", info.Name)
-	log.Debugf("info current: %v", info.Current)
-	log.Debugf("info lastupdate: %v", info.LastUpdate)
-	log.Debugf("info UpdateInProgress: %v", info.UpdateInProgress)
-	//	log.Debugf("info ResourceCount: %v", info.ResourceCount)
-	log.Debugf("info URL: %v", info.URL)
+	log.WithFields(log.Fields{
+		"backend":          "gcp_pulumi",
+		"name":             info.Name,
+		"current":          info.Current,
+		"lastupdate":       info.LastUpdate,
+		"updateinprogress": info.UpdateInProgress,
+		"url":              info.URL,
+		"resourcecount":    info.ResourceCount,
+	}).Infof("get stack info")
 
 	if !info.UpdateInProgress {
 		// fetch the outputs from the stack
@@ -132,7 +135,7 @@ func (r *Runner) GetConnectionInfo(i api.ID) (*api.GetConnectionInfoResponse, er
 func (r *Runner) List() (*api.ListResponse, error) {
 	log.SetReportCaller(true)
 	log.SetLevel(log.DebugLevel)
-	log.Infof("list request")
+	log.WithField("backend", "gcp_pulumi").Debugf("list")
 
 	ctx := context.Background()
 	// set up a workspace with only enough information for the list stack operations
@@ -151,14 +154,14 @@ func (r *Runner) List() (*api.ListResponse, error) {
 	for _, stack := range stacks {
 		ids = append(ids, api.ID(stack.Name))
 	}
-	log.Debugf("list ids: %v", ids)
+	log.WithField("backend", "gcp_pulumi").Debugf("list ids: %v", ids)
 	return &api.ListResponse{IDs: ids}, nil
 }
 
 func (r *Runner) IsExpired(i api.ID) (bool, error) {
 	log.SetReportCaller(true)
 	log.SetLevel(log.DebugLevel)
-	log.Infof("isExpired request")
+	log.WithField("backend", "gcp_pulumi").Debugf("isexpired")
 	//
 	stackName := string(i)
 	// we don't need a program since we're just getting stack outputs
@@ -203,25 +206,7 @@ func (r *Runner) IsExpired(i api.ID) (bool, error) {
 func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 
 	ctx := context.Background()
-
-	//type Spec struct {
-	//	Name             string
-	//	Expiry           string
-	//	PachdVersion     string
-	//	ConsoleVersion   string
-	//	NotebooksVersion string
-	//	ValuesYAML       string
-	//  CleanupOnFail    string
-	//}
-
-	log.Debugf("Name: %v", req.Name)
-	log.Debugf("Expiry: %v", req.Expiry)
-	log.Debugf("PachdVersion: %v", req.PachdVersion)
-	log.Debugf("ConsoleVersion: %v", req.ConsoleVersion)
-	log.Debugf("NotebooksVersion: %v", req.NotebooksVersion)
-	log.Debugf("HelmVersion: %v", req.HelmVersion)
-	log.Debugf("CleanupOnFail: %v", req.CleanupOnFail)
-	log.Debugf("ValuesYAML: %v", req.ValuesYAML)
+	log.WithField("backend", "gcp_pulumi").Debugf("create")
 
 	helmchartVersion := req.HelmVersion
 	stackName := req.Name
@@ -294,7 +279,7 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 func (r *Runner) Destroy(i api.ID) error {
 	log.SetReportCaller(true)
 	log.SetLevel(log.DebugLevel)
-	log.Infof("destroy request")
+	log.WithField("backend", "gcp_pulumi").Debugf("destroy")
 
 	ctx := context.Background()
 	stackName := string(i)
@@ -389,11 +374,6 @@ func createPulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 		if err != nil {
 			return err
 		}
-
-		// TODO: Hardcoded static IP address
-		// ipAddress := "34.148.221.170"
-		// ipAddress := static.Address
-		// log.Debugf("static IP: %v", ipAddress)
 
 		consoleUrl := pulumi.String(id + ".***REMOVED***")
 
