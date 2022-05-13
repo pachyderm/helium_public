@@ -550,7 +550,7 @@ func createPulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 			}
 			return []interface{}{svc.Status.LoadBalancer().Ingress().Index(pulumi.Int(0)), svc.Metadata.Name().Elem()}, nil
 		})
-		jupyterImage := "904d4965029e35a434c7c049a0470d9e4800c990"
+		jupyterImage := "v0.5.0"
 		if notebooksVersion != "" {
 			jupyterImage = notebooksVersion
 		}
