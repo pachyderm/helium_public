@@ -71,7 +71,6 @@ func GetConnInfoRequest(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	vars := mux.Vars(r)
 	id := api.ID(vars["workspaceId"])
-	log.Debugf("GetConn ID: %v", id)
 	var res *api.GetConnectionInfoResponse
 	res, err := gnp.GetConnectionInfo(id)
 	if err != nil {
@@ -89,7 +88,6 @@ func AsyncCreationRequest(w http.ResponseWriter, r *http.Request) {
 
 	log.SetReportCaller(true)
 	log.SetLevel(log.DebugLevel)
-	log.Info("testing handler")
 
 	var spec api.Spec
 	var err error
@@ -116,6 +114,8 @@ func AsyncCreationRequest(w http.ResponseWriter, r *http.Request) {
 	if spec.Name == "" {
 		spec.Name = util.Name()
 	}
+
+	var content []byte
 	var f *os.File
 	if file != nil {
 		f, err = os.CreateTemp("", "temp-values")
@@ -132,16 +132,30 @@ func AsyncCreationRequest(w http.ResponseWriter, r *http.Request) {
 			log.Errorf("error copying file: %v", err)
 			return
 		}
-		content, err := ioutil.ReadFile(f.Name())
+		content, err = ioutil.ReadFile(f.Name())
 		if err != nil {
 			w.WriteHeader(500)
 			fmt.Fprintf(w, "failed to upload file: %v", err)
 			log.Errorf("error copying file: %v", err)
 			return
 		}
-		log.Debugf("Content:\n%s", content)
+
 		spec.ValuesYAML = f.Name()
 	}
+
+	log.WithFields(log.Fields{
+		"canonical":         "true",
+		"request":           "create-api",
+		"name":              spec.Name,
+		"expiry":            spec.Expiry,
+		"pachdVersion":      spec.PachdVersion,
+		"consoleVersion":    spec.ConsoleVersion,
+		"notebooksVersion":  spec.NotebooksVersion,
+		"helmVersion":       spec.HelmVersion,
+		"cleanupOnFail":     spec.CleanupOnFail,
+		"valuesYAML":        spec.ValuesYAML,
+		"valuesYAMLContent": content,
+	}).Infof("create parameters")
 
 	// TODO: This is a bit of a hack
 	go func(spec api.Spec, f *os.File) {
@@ -157,12 +171,11 @@ func AsyncCreationRequest(w http.ResponseWriter, r *http.Request) {
 	}(spec, f)
 }
 
-func IsExpiredRequest(w http.ResponseWriter, r *http.Request) {
+func IsExpiredspecuest(w http.ResponseWriter, r *http.Request) {
 	gnp := &gcp_namespace_pulumi.Runner{}
 	w.Header().Set("Content-Type", "application/json")
 	vars := mux.Vars(r)
 	id := api.ID(vars["workspaceId"])
-	log.Debugf("GetConn ID: %v", id)
 	var val bool
 	val, err := gnp.IsExpired(id)
 	if err != nil {
@@ -181,7 +194,6 @@ func DeleteRequest(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	vars := mux.Vars(r)
 	id := api.ID(vars["workspaceId"])
-	log.Debugf("GetConn ID: %v", id)
 
 	err := gnp.Destroy(id)
 	if err != nil {
@@ -221,7 +233,6 @@ func UIGetWorkspace(w http.ResponseWriter, r *http.Request) {
 	gnp := &gcp_namespace_pulumi.Runner{}
 	vars := mux.Vars(r)
 	id := api.ID(vars["workspaceId"])
-	log.Debugf("GetConn ID: %v", id)
 	var res *api.GetConnectionInfoResponse
 	res, err := gnp.GetConnectionInfo(id)
 	if err != nil {
@@ -230,7 +241,6 @@ func UIGetWorkspace(w http.ResponseWriter, r *http.Request) {
 		log.Errorf("getConnInfo handler: %v", err)
 		return
 	}
-	log.Debugf("getConnInfo res: %v", res)
 
 	tmpl := template.Must(template.ParseFiles("templates/get.tmpl"))
 	if err := tmpl.Execute(w, res.Workspace); err != nil {
@@ -243,7 +253,6 @@ func UICreation(w http.ResponseWriter, r *http.Request) {
 
 	log.SetReportCaller(true)
 	log.SetLevel(log.DebugLevel)
-	log.Info("testing handler")
 
 	var spec api.Spec
 	var err error
@@ -270,6 +279,7 @@ func UICreation(w http.ResponseWriter, r *http.Request) {
 	if spec.Name == "" {
 		spec.Name = util.Name()
 	}
+	var content []byte
 	var f *os.File
 	if file != nil {
 		f, err = os.CreateTemp("", "temp-values")
@@ -286,16 +296,28 @@ func UICreation(w http.ResponseWriter, r *http.Request) {
 			log.Errorf("error copying file: %v", err)
 			return
 		}
-		content, err := ioutil.ReadFile(f.Name())
+		content, err = ioutil.ReadFile(f.Name())
 		if err != nil {
 			w.WriteHeader(500)
 			fmt.Fprintf(w, "failed to upload file: %v", err)
 			log.Errorf("error copying file: %v", err)
 			return
 		}
-		log.Debugf("Content:\n%s", content)
 		spec.ValuesYAML = f.Name()
 	}
+	log.WithFields(log.Fields{
+		"canonical":         "true",
+		"request":           "create-ui",
+		"name":              spec.Name,
+		"expiry":            spec.Expiry,
+		"pachdVersion":      spec.PachdVersion,
+		"consoleVersion":    spec.ConsoleVersion,
+		"notebooksVersion":  spec.NotebooksVersion,
+		"helmVersion":       spec.HelmVersion,
+		"cleanupOnFail":     spec.CleanupOnFail,
+		"valuesYAML":        spec.ValuesYAML,
+		"valuesYAMLContent": content,
+	}).Infof("create parameters")
 
 	// TODO: This is a bit of a hack
 	go func(spec api.Spec, f *os.File) {
