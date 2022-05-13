@@ -171,7 +171,7 @@ func AsyncCreationRequest(w http.ResponseWriter, r *http.Request) {
 	}(spec, f)
 }
 
-func IsExpiredspecuest(w http.ResponseWriter, r *http.Request) {
+func IsExpiredRequest(w http.ResponseWriter, r *http.Request) {
 	gnp := &gcp_namespace_pulumi.Runner{}
 	w.Header().Set("Content-Type", "application/json")
 	vars := mux.Vars(r)
