@@ -604,6 +604,11 @@ func createPulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 						"type": pulumi.String("ClusterIP"),
 					},
 				},
+				"scheduling": pulumi.Map{
+					"userScheduler": pulumi.Map{
+						"enabled": pulumi.Bool(false),
+					},
+				},
 			},
 		}, pulumi.Provider(k8sProvider))
 
