@@ -440,6 +440,9 @@ func createPulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 					"secretName": pulumi.String("wildcard-tls"),
 				},
 			},
+			"annotations": pulumi.Map{
+				"cluster-autoscaler.kubernetes.io/safe-to-evict": pulumi.String("true"),
+			},
 		}
 		if pachdVersion != "" {
 			pachdValues = pulumi.Map{
@@ -464,6 +467,9 @@ func createPulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 						"enabled":    pulumi.Bool(true),
 						"secretName": pulumi.String("wildcard-tls"),
 					},
+				},
+				"annotations": pulumi.Map{
+					"cluster-autoscaler.kubernetes.io/safe-to-evict": pulumi.String("true"),
 				},
 			}
 		}
