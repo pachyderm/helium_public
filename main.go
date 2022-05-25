@@ -146,6 +146,6 @@ func RunControlplane() {
 		if err != nil {
 			log.Errorf("deletion controller: %v", err)
 		}
-		time.Sleep(60 * time.Second)
+		time.Sleep(1800 * time.Second)
 	}
 }
