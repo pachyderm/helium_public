@@ -421,6 +421,11 @@ func createPulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 		}
 
 		pachdValues := pulumi.Map{
+			//pachAuthClusterRoleBindings: pulumi.Map{
+			//	# pachAuthClusterRoleBindings: |
+			//#   allUsers:
+			//#   - clusterAdmin
+			//}
 			"externalService": pulumi.Map{
 				"enabled": pulumi.Bool(true),
 				//						"loadBalancerIP": ipAddress,
