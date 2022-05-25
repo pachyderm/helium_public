@@ -105,6 +105,10 @@ func (r *Runner) GetConnectionInfo(i api.ID) (*api.GetConnectionInfoResponse, er
 		}
 		pachdip := outs["pachdip"].Value.(map[string]interface{})["ip"].(string)
 		pachdAddress := fmt.Sprintf("echo '{\"pachd_address\": \"%v://%v:%v\", \"source\": 2}' | tr -d \\ | pachctl config set context %v --overwrite && pachctl config set active-context %v", "grpc", pachdip, "30651", outs["k8sNamespace"].Value.(string), outs["k8sNamespace"].Value.(string))
+		createdBy, ok := outs["createdBy"].Value.(string)
+		if !ok {
+			createdBy = ""
+		}
 
 		return &api.GetConnectionInfoResponse{Workspace: api.ConnectionInfo{
 			Status:       status,
@@ -119,6 +123,7 @@ func (r *Runner) GetConnectionInfo(i api.ID) (*api.GetConnectionInfoResponse, er
 			Expiry:       outs["helium-expiry"].Value.(string),
 			PachdIp:      "grpc://" + pachdip + ":30651",
 			Pachctl:      pachdAddress,
+			CreatedBy:    createdBy,
 		}}, nil
 	}
 	return &api.GetConnectionInfoResponse{

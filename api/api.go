@@ -74,4 +74,5 @@ type ConnectionInfo struct {
 	PachdIp      string
 	Pachctl      string
 	Expiry       string
+	CreatedBy    string
 }
