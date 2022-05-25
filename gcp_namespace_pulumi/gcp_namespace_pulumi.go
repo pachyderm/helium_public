@@ -105,8 +105,8 @@ func (r *Runner) GetConnectionInfo(i api.ID) (*api.GetConnectionInfoResponse, er
 		}
 		pachdip := outs["pachdip"].Value.(map[string]interface{})["ip"].(string)
 		pachdAddress := fmt.Sprintf("echo '{\"pachd_address\": \"%v://%v:%v\", \"source\": 2}' | tr -d \\ | pachctl config set context %v --overwrite && pachctl config set active-context %v", "grpc", pachdip, "30651", outs["k8sNamespace"].Value.(string), outs["k8sNamespace"].Value.(string))
-		createdBy, ok := outs["createdBy"].Value.(string)
-		if !ok {
+		var createdBy string
+		if createdBy, ok = outs["createdBy"].Value.(string); !ok {
 			createdBy = ""
 		}
 
