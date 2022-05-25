@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"text/template"
 
@@ -25,6 +26,7 @@ const (
 )
 
 var decoder = schema.NewDecoder()
+var validNameCharacters = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]{1,61}[a-z0-9]{1})$`)
 
 // Middleware function, which will be called for each request
 func AuthMiddleware(next http.Handler) http.Handler {
@@ -113,6 +115,11 @@ func AsyncCreationRequest(w http.ResponseWriter, r *http.Request) {
 	}
 	if spec.Name == "" {
 		spec.Name = util.Name()
+	}
+	if badChar := validNameCharacters.FindString(spec.Name); badChar == "" {
+		w.WriteHeader(500)
+		fmt.Fprintf(w, "contains invalid character or is too long, must fit this regex ^[a-z0-9]([-a-z0-9]{1,61}[a-z0-9]{1})$")
+		log.Errorf("invalid name: %v", spec.Name)
 	}
 
 	var content []byte
@@ -278,6 +285,11 @@ func UICreation(w http.ResponseWriter, r *http.Request) {
 	}
 	if spec.Name == "" {
 		spec.Name = util.Name()
+	}
+	if badChar := validNameCharacters.FindString(spec.Name); badChar == "" {
+		w.WriteHeader(500)
+		fmt.Fprintf(w, "contains invalid character or is too long, must fit this regex ^[a-z0-9]([-a-z0-9]{1,61}[a-z0-9]{1})$")
+		log.Errorf("invalid name: %v", spec.Name)
 	}
 	var content []byte
 	var f *os.File
