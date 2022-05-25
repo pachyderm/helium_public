@@ -25,6 +25,8 @@ type Spec struct {
 	CleanupOnFail    string `schema:"cleanupOnFail"`
 	// This should be an actual file upload
 	ValuesYAML string //schema:"valuesYaml" This one isn't handled by a schema directly
+	// This is populated automatically by a header
+	CreatedBy string
 }
 
 type GetConnectionInfoRequest struct {

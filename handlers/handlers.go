@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strings"
 	"text/template"
+	"time"
 
 	sentryhttp "github.com/getsentry/sentry-go/http"
 	"github.com/gorilla/mux"
@@ -24,6 +25,7 @@ import (
 const (
 	SECRET_PASSWORD        = "Bearer ***REMOVED***"
 	SECRET_PASSWORD_HEADER = "Authorization"
+	USER_HEADER            = "Gap-Auth"
 )
 
 var decoder = schema.NewDecoder()
@@ -38,6 +40,23 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		} else {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		}
+	})
+}
+
+func LoggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		url := r.URL
+		method := r.Method
+		user := r.Header.Get(USER_HEADER)
+		next.ServeHTTP(w, r)
+		duration := time.Since(start)
+		log.WithFields(log.Fields{
+			"url":      url,
+			"method":   method,
+			"duration": duration,
+			"user":     user,
+		}).Info("request completed")
 	})
 }
 
@@ -114,6 +133,9 @@ func AsyncCreationRequest(w http.ResponseWriter, r *http.Request) {
 			log.Errorf("Error reading FormFile: %v", err)
 		}
 	}
+
+	spec.CreatedBy = r.Header.Get(USER_HEADER)
+
 	if spec.Name == "" {
 		spec.Name = util.Name()
 	}
@@ -285,6 +307,8 @@ func UICreation(w http.ResponseWriter, r *http.Request) {
 			log.Errorf("Error reading FormFile: %v", err)
 		}
 	}
+	spec.CreatedBy = r.Header.Get(USER_HEADER)
+
 	if spec.Name == "" {
 		spec.Name = util.Name()
 	}
