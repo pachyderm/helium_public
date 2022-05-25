@@ -42,8 +42,6 @@ type Backend interface {
 	Destroyer
 	// TODO: Expiry probably doesn't need to live in the API
 	IsExpirer
-	Register() *api.CreateRequest
-	Controller(context.Context) []Controller
 }
 
 // Register() *api.Backend

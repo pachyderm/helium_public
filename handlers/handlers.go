@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"html"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -118,8 +119,9 @@ func AsyncCreationRequest(w http.ResponseWriter, r *http.Request) {
 	}
 	if badChar := validNameCharacters.FindString(spec.Name); badChar == "" {
 		w.WriteHeader(500)
-		fmt.Fprintf(w, "contains invalid character or is too long, must fit this regex ^[a-z0-9]([-a-z0-9]{1,61}[a-z0-9]{1})$")
+		fmt.Fprintf(w, html.EscapeString("contains invalid character or is too long, must fit this regex ^[a-z0-9]([-a-z0-9]{1,61}[a-z0-9]{1})$"))
 		log.Errorf("invalid name: %v", spec.Name)
+		return
 	}
 
 	var content []byte
@@ -288,8 +290,9 @@ func UICreation(w http.ResponseWriter, r *http.Request) {
 	}
 	if badChar := validNameCharacters.FindString(spec.Name); badChar == "" {
 		w.WriteHeader(500)
-		fmt.Fprintf(w, "contains invalid character or is too long, must fit this regex ^[a-z0-9]([-a-z0-9]{1,61}[a-z0-9]{1})$")
+		fmt.Fprintf(w, html.EscapeString("contains invalid character or is too long, must fit this regex ^[a-z0-9]([-a-z0-9]{1,61}[a-z0-9]{1})$"))
 		log.Errorf("invalid name: %v", spec.Name)
+		return
 	}
 	var content []byte
 	var f *os.File
