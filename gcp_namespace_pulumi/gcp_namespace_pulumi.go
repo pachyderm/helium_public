@@ -105,6 +105,10 @@ func (r *Runner) GetConnectionInfo(i api.ID) (*api.GetConnectionInfoResponse, er
 		}
 		pachdip := outs["pachdip"].Value.(map[string]interface{})["ip"].(string)
 		pachdAddress := fmt.Sprintf("echo '{\"pachd_address\": \"%v://%v:%v\", \"source\": 2}' | tr -d \\ | pachctl config set context %v --overwrite && pachctl config set active-context %v", "grpc", pachdip, "30651", outs["k8sNamespace"].Value.(string), outs["k8sNamespace"].Value.(string))
+		var createdBy string
+		if createdBy, ok = outs["createdBy"].Value.(string); !ok {
+			createdBy = ""
+		}
 
 		return &api.GetConnectionInfoResponse{Workspace: api.ConnectionInfo{
 			Status:       status,
@@ -119,6 +123,7 @@ func (r *Runner) GetConnectionInfo(i api.ID) (*api.GetConnectionInfoResponse, er
 			Expiry:       outs["helium-expiry"].Value.(string),
 			PachdIp:      "grpc://" + pachdip + ":30651",
 			Pachctl:      pachdAddress,
+			CreatedBy:    createdBy,
 		}}, nil
 	}
 	return &api.GetConnectionInfoResponse{
@@ -249,7 +254,7 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 		cleanup = false
 	}
 
-	program := createPulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML, cleanup)
+	program := createPulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML, req.CreatedBy, cleanup)
 
 	s, err := auto.SelectStackInlineSource(ctx, stackName, project, program)
 	if err != nil {
@@ -322,7 +327,7 @@ func createEmptyPulumiProgram() pulumi.RunFunc {
 	}
 }
 
-func createPulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVersion, notebooksVersion, valuesYaml string, cleanup2 bool) pulumi.RunFunc {
+func createPulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVersion, notebooksVersion, valuesYaml, createdBy string, cleanup2 bool) pulumi.RunFunc {
 	return func(ctx *pulumi.Context) error {
 		slug := "pachyderm/ci-cluster/dev"
 		stackRef, _ := pulumi.NewStackReference(ctx, slug, nil)
@@ -628,6 +633,7 @@ func createPulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 		}
 
 		arr := result.(pulumi.ArrayOutput)
+		ctx.Export("createdBy", pulumi.String(createdBy))
 		ctx.Export("status", pulumi.String("ready"))
 		ctx.Export("pachdip", arr.Index(pulumi.Int(0)))
 		ctx.Export("juypterUrl", juypterURL)

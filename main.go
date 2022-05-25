@@ -108,6 +108,7 @@ type App struct {
 func (a *App) Initialize() {
 	a.Router = mux.NewRouter()
 	a.Router.Use(handlers.SentryMiddleware)
+	a.Router.Use(handlers.LoggingMiddleware)
 	a.Router.HandleFunc("/", handlers.UIRootHandler)
 	a.Router.HandleFunc("/healthz", handlers.HealthCheck)
 	a.Router.HandleFunc("/get/{workspaceId}", handlers.UIGetWorkspace)
