@@ -1,22 +1,4 @@
-FROM golang:1.17-alpine AS build
-
-WORKDIR /app
-
-RUN apk add --no-cache curl ca-certificates
-
-COPY go.mod go.sum ./
-
-RUN go mod download
-
-COPY ./ ./
-
-RUN CGO_ENABLED=0 go build -o out main.go
-
-FROM debian:bullseye-slim
-
-ARG HELIUM_CLIENT_SECRET
-ARG HELIUM_CLIENT_ID
-ARG PULUMI_ACCESS_TOKEN
+FROM debian:bullseye-slim AS base
 
 RUN apt update -y && apt install -y \
     ca-certificates \
@@ -34,12 +16,32 @@ RUN curl https://dl.google.com/dl/cloudsdk/release/google-cloud-sdk.tar.gz > /tm
 RUN mkdir -p /usr/local/gcloud \
   && tar -C /usr/local/gcloud -xvf /tmp/google-cloud-sdk.tar.gz \
   && /usr/local/gcloud/google-cloud-sdk/install.sh
-ENV PATH $PATH:/usr/local/gcloud/google-cloud-sdk/bin
+
+FROM golang:1.17-alpine AS build
+
+WORKDIR /app
+
+RUN apk add --no-cache curl ca-certificates
+
+COPY go.mod go.sum ./
+
+RUN go mod download
+
+COPY ./ ./
+
+RUN CGO_ENABLED=0 go build -o out main.go
+
+FROM base
+
+ARG HELIUM_CLIENT_SECRET
+ARG HELIUM_CLIENT_ID
+ARG PULUMI_ACCESS_TOKEN
 
 COPY --from=build /app/out /out
 COPY --from=build /app/root.py /root.py
 COPY --from=build /app/templates /templates
 
+ENV PATH $PATH:/usr/local/gcloud/google-cloud-sdk/bin
 ENV PATH "${HOME}/pulumi:$PATH"
 ENV HELIUM_MODE "API"
 
