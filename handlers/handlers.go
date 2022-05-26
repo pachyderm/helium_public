@@ -25,7 +25,7 @@ import (
 const (
 	SECRET_PASSWORD        = "Bearer ***REMOVED***"
 	SECRET_PASSWORD_HEADER = "Authorization"
-	USER_HEADER            = "Gap-Auth"
+	USER_HEADER            = "X-Forwarded-User"
 )
 
 var decoder = schema.NewDecoder()
