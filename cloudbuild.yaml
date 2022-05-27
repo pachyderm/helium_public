@@ -5,3 +5,5 @@ steps:
   - --cache=true
   - --cache-ttl=240h
 timeout: 1200s
+options:
+  machineType: 'E2_HIGHCPU_8'
