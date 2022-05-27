@@ -3,6 +3,7 @@ package gcp_namespace_pulumi
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -194,8 +195,7 @@ func (r *Runner) IsExpired(i api.ID) (bool, error) {
 		return false, err
 	}
 	if outs["helium-expiry"].Value == nil {
-		log.Warnf("expected stack output 'helium-expiry' not found for stack: %v", stackName)
-		return false, nil
+		return false, errors.New(fmt.Sprintf("expected stack output 'helium-expiry' not found for stack: %v", stackName))
 	}
 	log.Debugf("Expiry: %v", outs["helium-expiry"].Value.(string))
 	expiry, err := time.Parse(timeFormat, outs["helium-expiry"].Value.(string))
