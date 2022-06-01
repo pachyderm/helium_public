@@ -425,14 +425,17 @@ func createPulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 		}
 
 		pachdValues := pulumi.Map{
+			//pachAuthClusterRoleBindings: pulumi.Map{
+			//	# pachAuthClusterRoleBindings: |
+			//#   allUsers:
+			//#   - clusterAdmin
+			//}
 			"externalService": pulumi.Map{
 				"enabled": pulumi.Bool(true),
 				//						"loadBalancerIP": ipAddress,
 				"apiGRPCPort":   pulumi.Int(30651), //Dynamic Value
 				"s3GatewayPort": pulumi.Int(30601), //Dynamic Value
 			},
-			"pachAuthClusterRoleBindings": pulumi.String(`allUsers:
-	- clusterAdmin`),
 			"oauthClientSecret":    pulumi.String("***REMOVED***"),
 			"rootToken":            pulumi.String("***REMOVED***"),
 			"enterpriseSecret":     pulumi.String("***REMOVED***"),
@@ -461,8 +464,6 @@ func createPulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 					"apiGRPCPort":   pulumi.Int(30651), //Dynamic Value
 					"s3GatewayPort": pulumi.Int(30601), //Dynamic Value
 				},
-				"pachAuthClusterRoleBindings": pulumi.String(`allUsers:
-		- clusterAdmin`),
 				"oauthClientSecret":    pulumi.String("***REMOVED***"),
 				"rootToken":            pulumi.String("***REMOVED***"),
 				"enterpriseSecret":     pulumi.String("***REMOVED***"),
