@@ -13,8 +13,8 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/pachyderm/helium/backend"
-	"github.com/pachyderm/helium/pulumi_backends"
 	"github.com/pachyderm/helium/handlers"
+	"github.com/pachyderm/helium/pulumi_backends"
 	psentry "github.com/pachyderm/helium/sentry"
 )
 

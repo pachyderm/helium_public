@@ -28,7 +28,10 @@ type Spec struct {
 	ValuesYAML string //schema:"valuesYaml" This field isn't handled by schema directly
 	// This should be an actual file upload
 	// TODO: This needs to actually be wired up yet
-	InfraYAML string //schema:"infraYaml" This field isn't handled by schema directly
+	InfraJSON string //schema:"infraJson" This field isn't handled by schema directly
+	// TODO: A bit of a hack
+	InfraJSONContent InfraJson
+
 	// This is populated automatically by a header
 	CreatedBy string
 }
@@ -80,4 +83,28 @@ type ConnectionInfo struct {
 	Expiry       string
 	CreatedBy    string
 	Backend      string
+}
+
+type InfraJson struct {
+	K8S `json:"k8s"`
+	RDS `json:"rds"`
+}
+
+type RDS struct {
+	NodeType string `json:"nodeType"`
+	DiskType string `json:"diskType"`
+	DiskSize int    `json:"diskSize"`
+	DiskIOPS int    `json:"diskIOPS"`
+}
+
+type K8S struct {
+	Nodepools []Nodepool `json:"nodepools"`
+}
+
+type Nodepool struct {
+	NodeType         string `json:"nodeType"`
+	NodeNumInstances int    `json:"nodeNumInstances"`
+	NodeDiskType     string `json:"nodeDiskType"`
+	NodeDiskSize     int    `json:"nodeDiskSize"`
+	NodeDiskIOPS     int    `json:"nodeDiskIOPS"`
 }
