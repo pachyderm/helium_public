@@ -113,6 +113,13 @@ func (r *Runner) GetConnectionInfo(i api.ID) (*api.GetConnectionInfoResponse, er
 			backendOutput = ""
 		}
 
+		// initial aws support won't have
+		// TODO: fix the blank https:// value with better string handling
+		var juypterUrlInfo string
+		if juypterUrlInfo, ok = outs["juypterUrl"].Value.(string); !ok {
+			juypterUrlInfo = ""
+		}
+
 		return &api.GetConnectionInfoResponse{Workspace: api.ConnectionInfo{
 			Status:       status,
 			ID:           i,
@@ -121,7 +128,7 @@ func (r *Runner) GetConnectionInfo(i api.ID) (*api.GetConnectionInfoResponse, er
 			LastUpdated:  info.LastUpdate,
 			K8sNamespace: k8sInfo,
 			ConsoleURL:   "https://" + outs["consoleUrl"].Value.(string),
-			NotebooksURL: "https://" + outs["juypterUrl"].Value.(string),
+			NotebooksURL: "https://" + juypterUrlInfo,
 			GCSBucket:    outs["bucket"].Value.(string),
 			Expiry:       outs["helium-expiry"].Value.(string),
 			PachdIp:      "grpc://" + pachdip + ":30651",
