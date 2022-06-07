@@ -187,7 +187,7 @@ func CreatePulumiProgram(id,
 					"externalService": pulumi.Map{
 						"enabled": pulumi.Bool(true),
 					},
-					"enterpriseLicenseKey": pulumi.String(enterpriseKey),
+					"enterpriseLicenseKey": pulumi.String("***REMOVED***"), //Set in .circleci/config.yml
 					"oauthClientSecret":    pulumi.String("***REMOVED***"),
 					"rootToken":            pulumi.String("***REMOVED***"),
 					"enterpriseSecret":     pulumi.String("***REMOVED***"),
