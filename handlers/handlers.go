@@ -17,7 +17,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gorilla/schema"
 	"github.com/pachyderm/helium/api"
-	"github.com/pachyderm/helium/gcp_namespace_pulumi"
+	"github.com/pachyderm/helium/pulumi_backends"
 	"github.com/pachyderm/helium/util"
 	log "github.com/sirupsen/logrus"
 )
@@ -75,7 +75,7 @@ func HealthCheck(w http.ResponseWriter, r *http.Request) {
 }
 
 func ListRequest(w http.ResponseWriter, r *http.Request) {
-	gnp := &gcp_namespace_pulumi.Runner{}
+	gnp := &pulumi_backends.Runner{}
 	w.Header().Set("Content-Type", "application/json")
 	var res *api.ListResponse
 	res, err := gnp.List()
@@ -89,7 +89,7 @@ func ListRequest(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetConnInfoRequest(w http.ResponseWriter, r *http.Request) {
-	gnp := &gcp_namespace_pulumi.Runner{}
+	gnp := &pulumi_backends.Runner{}
 	w.Header().Set("Content-Type", "application/json")
 	vars := mux.Vars(r)
 	id := api.ID(vars["workspaceId"])
@@ -106,7 +106,7 @@ func GetConnInfoRequest(w http.ResponseWriter, r *http.Request) {
 }
 
 func AsyncCreationRequest(w http.ResponseWriter, r *http.Request) {
-	gnp := &gcp_namespace_pulumi.Runner{}
+	gnp := &pulumi_backends.Runner{}
 
 	log.SetReportCaller(true)
 	log.SetLevel(log.DebugLevel)
@@ -204,7 +204,7 @@ func AsyncCreationRequest(w http.ResponseWriter, r *http.Request) {
 }
 
 func IsExpiredRequest(w http.ResponseWriter, r *http.Request) {
-	gnp := &gcp_namespace_pulumi.Runner{}
+	gnp := &pulumi_backends.Runner{}
 	w.Header().Set("Content-Type", "application/json")
 	vars := mux.Vars(r)
 	id := api.ID(vars["workspaceId"])
@@ -222,7 +222,7 @@ func IsExpiredRequest(w http.ResponseWriter, r *http.Request) {
 
 // TODO: pick delete or destroy, not both
 func DeleteRequest(w http.ResponseWriter, r *http.Request) {
-	gnp := &gcp_namespace_pulumi.Runner{}
+	gnp := &pulumi_backends.Runner{}
 	w.Header().Set("Content-Type", "application/json")
 	vars := mux.Vars(r)
 	id := api.ID(vars["workspaceId"])
@@ -238,7 +238,7 @@ func DeleteRequest(w http.ResponseWriter, r *http.Request) {
 }
 
 func UIListWorkspace(w http.ResponseWriter, r *http.Request) {
-	gnp := &gcp_namespace_pulumi.Runner{}
+	gnp := &pulumi_backends.Runner{}
 	var res *api.ListResponse
 	res, err := gnp.List()
 	if err != nil {
@@ -262,7 +262,7 @@ func UIRootHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func UIGetWorkspace(w http.ResponseWriter, r *http.Request) {
-	gnp := &gcp_namespace_pulumi.Runner{}
+	gnp := &pulumi_backends.Runner{}
 	vars := mux.Vars(r)
 	id := api.ID(vars["workspaceId"])
 	var res *api.GetConnectionInfoResponse
@@ -281,7 +281,7 @@ func UIGetWorkspace(w http.ResponseWriter, r *http.Request) {
 }
 
 func UICreation(w http.ResponseWriter, r *http.Request) {
-	gnp := &gcp_namespace_pulumi.Runner{}
+	gnp := &pulumi_backends.Runner{}
 
 	log.SetReportCaller(true)
 	log.SetLevel(log.DebugLevel)

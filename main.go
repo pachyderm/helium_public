@@ -13,7 +13,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/pachyderm/helium/backend"
-	"github.com/pachyderm/helium/gcp_namespace_pulumi"
+	"github.com/pachyderm/helium/pulumi_backends"
 	"github.com/pachyderm/helium/handlers"
 	psentry "github.com/pachyderm/helium/sentry"
 )
@@ -145,7 +145,7 @@ func RunAPI() {
 func RunControlplane() {
 	for {
 		ctx := context.Background()
-		gnp := &gcp_namespace_pulumi.Runner{}
+		gnp := &pulumi_backends.Runner{}
 		err := backend.RunDeletionController(ctx, gnp)
 		if err != nil {
 			log.Errorf("deletion controller: %v", err)
