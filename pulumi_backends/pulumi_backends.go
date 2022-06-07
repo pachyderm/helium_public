@@ -105,7 +105,7 @@ func (r *Runner) GetConnectionInfo(i api.ID) (*api.GetConnectionInfoResponse, er
 		}
 
 		var k8sInfo string
-		if k8sInfo, ok = outs["k8sNamespace"].Value.(string); !ok {
+		if k8sInfo, ok = outs["k8sConnection"].Value.(string); !ok {
 			k8sInfo = ""
 		}
 
@@ -124,10 +124,10 @@ func (r *Runner) GetConnectionInfo(i api.ID) (*api.GetConnectionInfoResponse, er
 		return &api.GetConnectionInfoResponse{Workspace: api.ConnectionInfo{
 			Status:       status,
 			ID:           i,
-			K8s:          outs["k8sConnection"].Value.(string),
+			K8s:          k8sInfo,
 			PulumiURL:    info.URL + "/updates/1",
 			LastUpdated:  info.LastUpdate,
-			K8sNamespace: k8sInfo,
+			K8sNamespace: outs["k8sNamespace"].Value.(string),
 			ConsoleURL:   "https://" + outs["consoleUrl"].Value.(string),
 			NotebooksURL: "https://" + juypterUrlInfo,
 			GCSBucket:    outs["bucket"].Value.(string),
