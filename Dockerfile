@@ -7,7 +7,8 @@ RUN apt update -y && apt install -y \
     wget \
     curl \
     python \
-    && rm -rf /var/lib/apt/lists/*
+    unzip \
+  && rm -rf /var/lib/apt/lists/*
 
 RUN wget https://get.pulumi.com/releases/sdk/pulumi-v3.31.0-linux-x64.tar.gz
 RUN tar xvf pulumi-v3.31.0-linux-x64.tar.gz
@@ -16,6 +17,25 @@ RUN curl https://dl.google.com/dl/cloudsdk/release/google-cloud-sdk.tar.gz > /tm
 RUN mkdir -p /usr/local/gcloud \
   && tar -C /usr/local/gcloud -xvf /tmp/google-cloud-sdk.tar.gz \
   && /usr/local/gcloud/google-cloud-sdk/install.sh
+
+RUN curl -fsSL https://deb.nodesource.com/setup_current.x | bash - && \
+  apt-get install -y nodejs \
+  build-essential && \
+  node --version && \ 
+  npm --version
+
+RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+RUN unzip awscliv2.zip
+RUN ./aws/install
+
+RUN curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
+RUN mv /tmp/eksctl /usr/local/bin
+
+RUN curl -o aws-iam-authenticator https://s3.us-west-2.amazonaws.com/amazon-eks/1.21.2/2021-07-05/bin/linux/amd64/aws-iam-authenticator
+RUN chmod +x ./aws-iam-authenticator
+
+RUN mkdir -p $HOME/bin && cp ./aws-iam-authenticator $HOME/bin/aws-iam-authenticator && export PATH=$PATH:$HOME/bin
+RUN echo 'export PATH=$PATH:$HOME/bin' >> ~/.bashrc
 
 FROM golang:1.17-alpine AS build
 

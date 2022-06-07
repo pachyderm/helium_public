@@ -2,7 +2,6 @@ package aws_cluster
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 
@@ -52,12 +51,12 @@ func CreatePulumiProgram(id,
 ) pulumi.RunFunc {
 	return func(ctx *pulumi.Context) error {
 
-		r, err := rds.NewInstance(ctx, "wp-postgresql", &rds.InstanceArgs{
+		r, err := rds.NewInstance(ctx, "helium-postgresql", &rds.InstanceArgs{
 			AllocatedStorage:   pulumi.Int(1000),
 			Engine:             pulumi.String("postgres"),
 			InstanceClass:      pulumi.String("db.m6g.2xlarge"),
 			DbName:             pulumi.String("pachyderm"),
-			Password:           pulumi.String("rdsInstanceNamePassword"),
+			Password:           pulumi.String("correcthorsebatterystaple"),
 			SkipFinalSnapshot:  pulumi.Bool(true),
 			StorageType:        pulumi.String("gp2"),
 			Username:           pulumi.String("postgres"),
@@ -68,7 +67,7 @@ func CreatePulumiProgram(id,
 			return err
 		}
 
-		postgresProvider, err := postgresql.NewProvider(ctx, "wp-postgresql", &postgresql.ProviderArgs{
+		postgresProvider, err := postgresql.NewProvider(ctx, "helium-postgresql", &postgresql.ProviderArgs{
 			Host:     r.Address,
 			Port:     r.Port,
 			Username: r.Username,
@@ -85,7 +84,7 @@ func CreatePulumiProgram(id,
 			return err
 		}
 
-		bucket, err := s3.NewBucket(ctx, "wp-bucket", &s3.BucketArgs{
+		bucket, err := s3.NewBucket(ctx, "helium-bucket", &s3.BucketArgs{
 			Acl: pulumi.String("public-read-write"),
 		})
 
@@ -138,14 +137,15 @@ func CreatePulumiProgram(id,
 			return err
 		}
 
-		enterpriseKey := os.Getenv("PACH_ENTERPRISE_TOKEN")
+		//enterpriseKey := os.Getenv("PACH_ENTERPRISE_TOKEN")
 
 		awsSAkey := os.Getenv("AWS_ACCESS_KEY_ID")
 		awsSAsecret := os.Getenv("AWS_SECRET_ACCESS_KEY")
 
-		if enterpriseKey == "" {
-			return errors.New("Need to supply env var PACH_ENTERPRISE_TOKEN")
-		}
+		// if enterpriseKey == "" {
+		// 	return errors.New("Need to supply env var PACH_ENTERPRISE_TOKEN")
+		// }
+
 		urlSuffix := "fancy-elephant.com"
 		managedZone := urlSuffix + "."
 		url := pulumi.String(id + urlSuffix)
@@ -199,7 +199,7 @@ func CreatePulumiProgram(id,
 					"postgresql": pulumi.Map{
 						"postgresqlHost":                   r.Address,
 						"postgresqlUsername":               pulumi.String("postgres"),
-						"postgresqlPassword":               pulumi.String("correcthorsebatterystaple"), //To allow for clean upgrade
+						"postgresqlPassword":               pulumi.String("correcthorsebatterystaple"),
 						"postgresqlPostgresPassword":       pulumi.String("correcthorsebatterystaple"),
 						"identityDatabaseFullNameOverride": dexDb.Name,
 					},

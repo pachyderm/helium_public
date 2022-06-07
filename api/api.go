@@ -23,7 +23,7 @@ type Spec struct {
 	NotebooksVersion string `schema:"notebooksVersion"`
 	HelmVersion      string `schema:"helmVersion"`
 	CleanupOnFail    string `schema:"cleanupOnFail"`
-	Backend          string `schema:"name"`
+	Backend          string `schema:"backend"`
 	// This should be an actual file upload
 	ValuesYAML string //schema:"valuesYaml" This field isn't handled by schema directly
 	// This should be an actual file upload
