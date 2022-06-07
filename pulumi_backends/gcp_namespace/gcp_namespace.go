@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	BackendName         = "gcp-namespace-pulumi"
+	BackendName         = "gcp-namespace"
 	timeFormat          = "2006-01-02"
 	DefaultJupyterImage = "v0.5.1"
 	// This is an internal GCP ID, not sure if it's exposed at all through pulumi.  I got it by doing a GET call directly against their API here:
@@ -374,6 +374,7 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 		ctx.Export("bucket", bucket.Name)
 		ctx.Export("helium-expiry", pulumi.String(expiry))
 		ctx.Export("k8sConnection", pulumi.String("gcloud container clusters get-credentials ***REMOVED*** --zone us-east1-b --project ***REMOVED***"))
+		ctx.Export("backend", pulumi.String(BackendName))
 		ctx.Export("pachd-lb-ip", gcpL4LoadBalancerIP)
 		ctx.Export("pachd-lb-url", pachdUrl)
 

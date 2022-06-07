@@ -1,0 +1,362 @@
+package pulumi_backends
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"strings"
+	"time"
+
+	"github.com/pulumi/pulumi/sdk/v3/go/auto"
+	"github.com/pulumi/pulumi/sdk/v3/go/auto/optdestroy"
+	"github.com/pulumi/pulumi/sdk/v3/go/auto/optup"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/tokens"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/workspace"
+	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
+
+	"github.com/pachyderm/helium/api"
+	"github.com/pachyderm/helium/backend"
+	"github.com/pachyderm/helium/pulumi_backends/gcp_namespace"
+	"github.com/pachyderm/helium/util"
+
+	log "github.com/sirupsen/logrus"
+)
+
+// This implementation is mostly a thin wrapper around https://github.com/pachyderm/pulumihttp/
+func init() {
+	ensurePlugins()
+}
+
+const (
+	//BackendName = "gcp-namespace-pulumi"
+	timeFormat = "2006-01-02"
+)
+
+var (
+	project           = "helium"
+	clientSecret      = os.Getenv("HELIUM_CLIENT_SECRET")
+	clientID          = os.Getenv("HELIUM_CLIENT_ID")
+	expirationNumDays = os.Getenv("HELIUM_DEFAULT_EXPIRATION_DAYS")
+	auth0Domain       = "https://***REMOVED***.auth0.com/"
+)
+
+type Runner struct {
+	Name backend.Name
+}
+
+func (r *Runner) GetConnectionInfo(i api.ID) (*api.GetConnectionInfoResponse, error) {
+	log.SetReportCaller(true)
+	log.SetLevel(log.DebugLevel)
+	log.WithField("backend", "pulumi").Debugf("Get Info")
+
+	stackName := string(i)
+	// we don't need a program since we're just getting stack outputs
+	var program pulumi.RunFunc = nil
+	ctx := context.Background()
+	s, err := auto.SelectStackInlineSource(ctx, stackName, project, program)
+	if err != nil {
+		// if the stack doesn't already exist, 404
+		if auto.IsSelectStack404Error(err) {
+			return nil, fmt.Errorf("stack %q not found: %w", stackName, err)
+		}
+		return nil, err
+	}
+
+	info, err := s.Info(ctx)
+	if err != nil {
+		return nil, err
+	}
+	log.WithFields(log.Fields{
+		"backend":          "pulumi",
+		"name":             info.Name,
+		"current":          info.Current,
+		"lastupdate":       info.LastUpdate,
+		"updateinprogress": info.UpdateInProgress,
+		"url":              info.URL,
+		"resourcecount":    info.ResourceCount,
+	}).Infof("get stack info")
+
+	if !info.UpdateInProgress {
+		// fetch the outputs from the stack
+		outs, err := s.Outputs(ctx)
+		if err != nil {
+			return nil, err
+		}
+		// Output is only set on success. If update is not in progess, and no outputs, we know it's in a failed state
+		status, ok := outs["status"].Value.(string)
+		if !ok {
+			return &api.GetConnectionInfoResponse{
+				Workspace: api.ConnectionInfo{
+					Status: "failed",
+					ID:     i,
+					// Updates aren't supported, so first update is always accurate
+					// TODO: ^That isn't true anymore
+					PulumiURL:   info.URL + "/updates/1",
+					LastUpdated: info.LastUpdate,
+				},
+			}, nil
+		}
+		pachdip := outs["pachdip"].Value.(map[string]interface{})["ip"].(string)
+		pachdAddress := fmt.Sprintf("echo '{\"pachd_address\": \"%v://%v:%v\", \"source\": 2}' | tr -d \\ | pachctl config set context %v --overwrite && pachctl config set active-context %v", "grpc", pachdip, "30651", outs["k8sNamespace"].Value.(string), outs["k8sNamespace"].Value.(string))
+		var createdBy string
+		if createdBy, ok = outs["createdBy"].Value.(string); !ok {
+			createdBy = ""
+		}
+
+		var k8sInfo string
+		if k8sInfo, ok = outs["k8sNamespace"].Value.(string); !ok {
+			k8sInfo = ""
+		}
+
+		var backendOutput string
+		if backendOutput, ok = outs["backend"].Value.(string); !ok {
+			backendOutput = ""
+		}
+
+		return &api.GetConnectionInfoResponse{Workspace: api.ConnectionInfo{
+			Status:       status,
+			ID:           i,
+			K8s:          outs["k8sConnection"].Value.(string),
+			PulumiURL:    info.URL + "/updates/1",
+			LastUpdated:  info.LastUpdate,
+			K8sNamespace: k8sInfo,
+			ConsoleURL:   "https://" + outs["consoleUrl"].Value.(string),
+			NotebooksURL: "https://" + outs["juypterUrl"].Value.(string),
+			GCSBucket:    outs["bucket"].Value.(string),
+			Expiry:       outs["helium-expiry"].Value.(string),
+			PachdIp:      "grpc://" + pachdip + ":30651",
+			Pachctl:      pachdAddress,
+			CreatedBy:    createdBy,
+			Backend:      backendOutput,
+		}}, nil
+	}
+	return &api.GetConnectionInfoResponse{
+		Workspace: api.ConnectionInfo{
+			Status:      "creating",
+			ID:          i,
+			PulumiURL:   info.URL + "/updates/1",
+			LastUpdated: info.LastUpdate,
+		},
+	}, nil
+}
+
+func (r *Runner) List() (*api.ListResponse, error) {
+	log.SetReportCaller(true)
+	log.SetLevel(log.DebugLevel)
+	log.WithField("backend", "pulumi").Debugf("list")
+
+	ctx := context.Background()
+	// set up a workspace with only enough information for the list stack operations
+	ws, err := auto.NewLocalWorkspace(ctx, auto.Project(workspace.Project{
+		Name:    tokens.PackageName(project),
+		Runtime: workspace.NewProjectRuntimeInfo("go", nil),
+	}))
+	if err != nil {
+		return nil, err
+	}
+	stacks, err := ws.ListStacks(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var ids []api.ID
+	for _, stack := range stacks {
+		ids = append(ids, api.ID(stack.Name))
+	}
+	log.WithField("backend", "pulumi").Debugf("list ids: %v", ids)
+	return &api.ListResponse{IDs: ids}, nil
+}
+
+func (r *Runner) IsExpired(i api.ID) (bool, error) {
+	log.SetReportCaller(true)
+	log.SetLevel(log.DebugLevel)
+	log.WithField("backend", "pulumi").Debugf("isexpired")
+	//
+	stackName := string(i)
+	// we don't need a program since we're just getting stack outputs
+	var program pulumi.RunFunc = nil
+	ctx := context.Background()
+	s, err := auto.SelectStackInlineSource(ctx, stackName, project, program)
+	if err != nil {
+		// if the stack doesn't already exist, 404
+		if auto.IsSelectStack404Error(err) {
+			return false, fmt.Errorf("stack %q not found: %w", stackName, err)
+		}
+		return false, err
+	}
+	info, err := s.Info(ctx)
+	if err != nil {
+		return false, err
+	}
+	// an update is currently ongoing, it can't be expired while actively updating
+	if info.UpdateInProgress {
+		return false, nil
+	}
+	// fetch the outputs from the stack
+	outs, err := s.Outputs(ctx)
+	if err != nil {
+		return false, err
+	}
+	if outs["helium-expiry"].Value == nil {
+		return false, fmt.Errorf("expected stack output 'helium-expiry' not found for stack: %v", stackName)
+	}
+	log.Debugf("Expiry: %v", outs["helium-expiry"].Value.(string))
+	expiry, err := time.Parse(timeFormat, outs["helium-expiry"].Value.(string))
+	if err != nil {
+		return false, err
+	}
+	if time.Now().After(expiry) {
+		return true, nil
+	}
+	return false, nil
+}
+
+func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
+
+	ctx := context.Background()
+	log.WithField("backend", "pulumi").Debugf("create")
+
+	helmchartVersion := req.HelmVersion
+	stackName := req.Name
+
+	var expiry time.Time
+	var err error
+	if req.Expiry != "" {
+		expiry, err = time.Parse(timeFormat, req.Expiry)
+		if err != nil {
+			return nil, err
+		}
+	}
+	//var expiryDefault int
+	//if expirationNumDays == "" {
+	//	expiryDefault = 1
+	//} else {
+	//	expiryDefault, err = strconv.Atoi(expirationNumDays)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//}
+	//if expiryDefault == 0 {
+	//	expiryDefault = 1
+	//}
+
+	if expiry.IsZero() {
+		// default to 1 day for expiry
+		expiry = time.Now().AddDate(0, 0, 1)
+		//expiry = time.Now().AddDate(0, 0, 1*expiryDefaul)
+		log.Debugf("Expiry: %v", expiry)
+	} else if expiry.After(time.Now().AddDate(0, 0, 1*90)) {
+		// Max expiration date is 90 days from now
+		expiry = time.Now().AddDate(0, 0, 1*90)
+		log.Debugf("Expiry: %v", expiry)
+	}
+	expiryStr := expiry.Format(timeFormat)
+
+	cleanup := true
+	if req.CleanupOnFail == "False" {
+		cleanup = false
+	}
+
+	backend := strings.ToLower(req.Backend)
+	var program pulumi.RunFunc
+	switch backend {
+	// This could just be moved to default, but wanted to be explicit
+	case "gcp_namespace":
+		// TODO: remove debugging function in followup PR
+		log.Debug("pulumi backend gcp namespace explitly specified")
+		program = gcp_namespace.CreatePulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML, req.CreatedBy, cleanup)
+	case "aws_cluster":
+		return nil, fmt.Errorf("pulumi backend aws_cluster is unimplemented")
+	default:
+		program = gcp_namespace.CreatePulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML, req.CreatedBy, cleanup)
+	}
+
+	s, err := auto.SelectStackInlineSource(ctx, stackName, project, program)
+	if err != nil {
+		if auto.IsSelectStack404Error(err) {
+			s, err = auto.NewStackInlineSource(ctx, stackName, project, program)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, err
+		}
+	}
+	//s.SetConfig(ctx, "gcp:project", auto.ConfigValue{Value: "***REMOVED***"})
+	//s.SetConfig(ctx, "gcp:zone", auto.ConfigValue{Value: "us-east1-b"})
+
+	// deploy the stack
+	// we'll write all of the update logs to st	out so we can watch requests get processed
+	_, err = s.Up(ctx, optup.ProgressStreams(util.NewLogWriter(log.WithFields(log.Fields{"pulumi_op": "create", "stream": "stdout"}))))
+	if err != nil {
+		s.SetConfig(ctx, "status", auto.ConfigValue{Value: "failed"})
+		return nil, err
+	}
+
+	return &api.CreateResponse{api.ID(stackName)}, nil
+}
+
+func (r *Runner) Destroy(i api.ID) error {
+	log.SetReportCaller(true)
+	log.SetLevel(log.DebugLevel)
+	log.WithField("backend", "pulumi").Debugf("destroy")
+
+	ctx := context.Background()
+	stackName := string(i)
+	// program doesn't matter for destroying a stack
+	program := createEmptyPulumiProgram()
+
+	s, err := auto.SelectStackInlineSource(ctx, stackName, project, program)
+	if err != nil {
+		// if stack doesn't already exist, 404
+		if auto.IsSelectStack404Error(err) {
+			log.Errorf("stack %q not found", stackName)
+			return err
+		}
+		return err
+	}
+	//s.SetConfig(ctx, "gcp:project", auto.ConfigValue{Value: "***REMOVED***"})
+	//s.SetConfig(ctx, "gcp:zone", auto.ConfigValue{Value: "us-east1-b"})
+
+	// destroy the stack
+	// we'll write all of the logs to stdout so we can watch requests get processed
+	//	_, err = s.Destroy(ctx, optdestroy.ProgressStreams(os.Stdout))
+	_, err = s.Destroy(ctx, optdestroy.ProgressStreams(util.NewLogWriter(log.WithFields(log.Fields{"pulumi_op": "create", "stream": "stdout"}))))
+	if err != nil {
+		return err
+	}
+
+	// delete the stack and all associated history and config
+	// Apparently unimplemented: optremov.ProgressStreams()
+	err = s.Workspace().RemoveStack(ctx, stackName)
+	if err != nil {
+		return err
+	}
+	log.Infof("deleted all associated stack information with: %s", stackName)
+	return nil
+}
+
+func createEmptyPulumiProgram() pulumi.RunFunc {
+	return func(ctx *pulumi.Context) error {
+		return nil
+	}
+}
+
+// TODO: Document need to add plugins for other providers
+func ensurePlugins() {
+	ctx := context.Background()
+	w, err := auto.NewLocalWorkspace(ctx)
+	if err != nil {
+		fmt.Printf("Failed to setup and run http server: %v\n", err)
+		os.Exit(1)
+	}
+	err = w.InstallPlugin(ctx, "gcp", "v6.5.0")
+	if err != nil {
+		fmt.Printf("Failed to install program plugins: %v\n", err)
+		os.Exit(1)
+	}
+	err = w.InstallPlugin(ctx, "kubernetes", "v3.12.1")
+	if err != nil {
+		fmt.Printf("Failed to install program plugins: %v\n", err)
+		os.Exit(1)
+	}
+}

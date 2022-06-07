@@ -23,8 +23,12 @@ type Spec struct {
 	NotebooksVersion string `schema:"notebooksVersion"`
 	HelmVersion      string `schema:"helmVersion"`
 	CleanupOnFail    string `schema:"cleanupOnFail"`
+	Backend          string `schema:"name"`
 	// This should be an actual file upload
-	ValuesYAML string //schema:"valuesYaml" This one isn't handled by a schema directly
+	ValuesYAML string //schema:"valuesYaml" This field isn't handled by schema directly
+	// This should be an actual file upload
+	// TODO: This needs to actually be wired up yet
+	InfraYAML string //schema:"infraYaml" This field isn't handled by schema directly
 	// This is populated automatically by a header
 	CreatedBy string
 }
@@ -75,4 +79,5 @@ type ConnectionInfo struct {
 	Pachctl      string
 	Expiry       string
 	CreatedBy    string
+	Backend      string
 }
