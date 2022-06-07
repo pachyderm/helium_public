@@ -1,4 +1,4 @@
-package main
+package aws_cluster
 
 import (
 	"encoding/json"
@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/prometheus/common/log"
 	"github.com/pulumi/pulumi-aws/sdk/v5/go/aws/rds"
 	"github.com/pulumi/pulumi-aws/sdk/v5/go/aws/s3"
 	"github.com/pulumi/pulumi-eks/sdk/go/eks"
@@ -15,6 +14,8 @@ import (
 	"github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/helm/v3"
 	postgresql "github.com/pulumi/pulumi-postgresql/sdk/v3/go/postgresql"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
+
+	log "github.com/sirupsen/logrus"
 )
 
 //import (
@@ -231,7 +232,8 @@ func CreatePulumiProgram(id,
 		ctx.Export("k8sNamespace", namespace.Metadata.Elem().Name())
 		ctx.Export("bucket", bucket.Bucket)
 		ctx.Export("helium-expiry", pulumi.String(expiry))
-		ctx.Export("k8sConnection", pulumi.String(fmt.Sprintf("aws eks --region us-west-2 update-kubeconfig --name %s", cluster.EksCluster.Name)))
+		//cluster.EksCluster.Name()
+		ctx.Export("k8sConnection", pulumi.String(fmt.Sprintf("aws eks --region us-west-2 update-kubeconfig --name %s", "hi")))
 		ctx.Export("backend", pulumi.String(BackendName))
 
 		return nil

@@ -16,6 +16,7 @@ import (
 
 	"github.com/pachyderm/helium/api"
 	"github.com/pachyderm/helium/backend"
+	"github.com/pachyderm/helium/pulumi_backends/aws_cluster"
 	"github.com/pachyderm/helium/pulumi_backends/gcp_namespace"
 	"github.com/pachyderm/helium/util"
 
@@ -272,7 +273,8 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 		log.Debug("pulumi backend gcp namespace explitly specified")
 		program = gcp_namespace.CreatePulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML, req.CreatedBy, cleanup)
 	case "aws_cluster":
-		return nil, fmt.Errorf("pulumi backend aws_cluster is unimplemented")
+		program = aws_cluster.CreatePulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML, req.CreatedBy, cleanup)
+
 	default:
 		program = gcp_namespace.CreatePulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML, req.CreatedBy, cleanup)
 	}
