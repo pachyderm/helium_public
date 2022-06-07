@@ -9,6 +9,7 @@ import (
 	"github.com/pulumi/pulumi-aws/sdk/v5/go/aws/rds"
 	"github.com/pulumi/pulumi-aws/sdk/v5/go/aws/s3"
 	"github.com/pulumi/pulumi-eks/sdk/go/eks"
+	"github.com/pulumi/pulumi-gcp/sdk/v6/go/gcp/dns"
 	"github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes"
 	corev1 "github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/core/v1"
 	"github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/helm/v3"
@@ -119,7 +120,7 @@ func CreatePulumiProgram(id,
 			return err
 		}
 
-		_, err = helm.NewRelease(ctx, "traefik", &helm.ReleaseArgs{
+		traefikRelease, err := helm.NewRelease(ctx, "traefik", &helm.ReleaseArgs{
 			RepositoryOpts: helm.RepositoryOptsArgs{
 				Repo: pulumi.String("https://helm.traefik.io/traefik"),
 			},
@@ -145,8 +146,9 @@ func CreatePulumiProgram(id,
 		if enterpriseKey == "" {
 			return errors.New("Need to supply env var PACH_ENTERPRISE_TOKEN")
 		}
-
-		url := pulumi.String(id + ".***REMOVED***")
+		urlSuffix := "fancy-elephant.com"
+		managedZone := urlSuffix + "."
+		url := pulumi.String(id + urlSuffix)
 
 		array := []pulumi.AssetOrArchiveInput{}
 		array = append(array, pulumi.AssetOrArchiveInput(pulumi.NewFileAsset(valuesYaml)))
@@ -222,6 +224,33 @@ func CreatePulumiProgram(id,
 			}
 			return []interface{}{svc.Status.LoadBalancer().Ingress().Index(pulumi.Int(0)), svc.Metadata.Name().Elem()}, nil
 		})
+
+		traefikExternalSvc := pulumi.All(corePach.Status.Namespace()).ApplyT(func(r interface{}) ([]interface{}, error) {
+			arr := r.([]interface{})
+			namespace := arr[0].(*string)
+			svc, err := corev1.GetService(ctx, "svc", pulumi.ID(fmt.Sprintf("%s/%v", *namespace, traefikRelease.Name)), nil, pulumi.Timeouts(&pulumi.CustomTimeouts{Create: "10m"}), pulumi.Provider(k8sProvider))
+			if err != nil {
+				log.Errorf("error getting loadbalancer IP: %v", err)
+				return nil, err
+			}
+			return []interface{}{svc.Status.LoadBalancer().Ingress().Index(pulumi.Int(0)), svc.Metadata.Name().Elem()}, nil
+		})
+
+		arr2 := traefikExternalSvc.(pulumi.ArrayOutput)
+		// if things start panicking, this might be the culprit
+		traefikExternal := arr2.Index(pulumi.Int(0)).(pulumi.StringOutput)
+
+		_, err = dns.NewRecordSet(ctx, "frontendRecordSet", &dns.RecordSetArgs{
+			Name:        url,
+			Type:        pulumi.String("CNAME"),
+			Ttl:         pulumi.Int(300),
+			ManagedZone: pulumi.String(managedZone),
+			Rrdatas:     pulumi.StringArray{traefikExternal},
+		})
+
+		if err != nil {
+			return err
+		}
 
 		arr := result.(pulumi.ArrayOutput)
 		ctx.Export("createdBy", pulumi.String(createdBy))
