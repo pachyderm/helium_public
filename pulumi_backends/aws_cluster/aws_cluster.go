@@ -225,7 +225,7 @@ func CreatePulumiProgram(id,
 			return []interface{}{svc.Status.LoadBalancer().Ingress().Index(pulumi.Int(0)), svc.Metadata.Name().Elem()}, nil
 		})
 
-		traefikExternalSvc := pulumi.All(corePach.Status.Namespace()).ApplyT(func(r interface{}) ([]interface{}, error) {
+		traefikExternalSvc := pulumi.All(corePach.Status.Namespace()).ApplyT(func(r interface{}) (interface{}, error) {
 			arr := r.([]interface{})
 			namespace := arr[0].(*string)
 			svc, err := corev1.GetService(ctx, "svc", pulumi.ID(fmt.Sprintf("%s/%v", *namespace, traefikRelease.Name)), nil, pulumi.Timeouts(&pulumi.CustomTimeouts{Create: "10m"}), pulumi.Provider(k8sProvider))
@@ -233,7 +233,7 @@ func CreatePulumiProgram(id,
 				log.Errorf("error getting loadbalancer IP: %v", err)
 				return nil, err
 			}
-			return []interface{}{svc.Status.LoadBalancer().Ingress().Index(pulumi.Int(0)).Ip(), svc.Metadata.Name().Elem()}, nil
+			return svc.Status.LoadBalancer().Ingress().Index(pulumi.Int(0)).Ip().Elem(), nil
 		}).(pulumi.StringOutput)
 
 		//arr2 := traefikExternalSvc.(pulumi.ArrayOutput)
