@@ -373,4 +373,9 @@ func ensurePlugins() {
 		fmt.Printf("Failed to install program plugins: %v\n", err)
 		os.Exit(1)
 	}
+	err = w.InstallPlugin(ctx, "eks", "v0.40.0")
+	if err != nil {
+		fmt.Printf("Failed to install program plugins: %v\n", err)
+		os.Exit(1)
+	}
 }
