@@ -21,7 +21,7 @@ RUN mkdir -p /usr/local/gcloud \
 RUN curl -fsSL https://deb.nodesource.com/setup_current.x | bash - && \
   apt-get install -y nodejs \
   build-essential && \
-  node --version && \ 
+  node --version && \
   npm --version
 
 RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
@@ -37,11 +37,11 @@ RUN chmod +x ./aws-iam-authenticator
 RUN mkdir -p $HOME/bin && cp ./aws-iam-authenticator $HOME/bin/aws-iam-authenticator && export PATH=$PATH:$HOME/bin
 RUN echo 'export PATH=$PATH:$HOME/bin' >> ~/.bashrc
 
-FROM golang:1.17-alpine AS build
+FROM golang:1.17 AS build
 
 WORKDIR /app
 
-RUN apk add --no-cache curl ca-certificates
+RUN apt-get install -y curl ca-certificates
 
 COPY go.mod go.sum ./
 
