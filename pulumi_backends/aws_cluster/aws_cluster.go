@@ -225,27 +225,41 @@ func CreatePulumiProgram(id,
 			return []interface{}{svc.Status.LoadBalancer().Ingress().Index(pulumi.Int(0)), svc.Metadata.Name().Elem()}, nil
 		})
 
-		traefikExternalSvc := pulumi.All(corePach.Status.Namespace()).ApplyT(func(r interface{}) (interface{}, error) {
-			arr := r.([]interface{})
-			namespace := arr[0].(*string)
-			svc, err := corev1.GetService(ctx, "svc", pulumi.ID(fmt.Sprintf("%s/%v", *namespace, traefikRelease.Name)), nil, pulumi.Timeouts(&pulumi.CustomTimeouts{Create: "10m"}), pulumi.Provider(k8sProvider))
-			if err != nil {
-				log.Errorf("error getting loadbalancer IP: %v", err)
-				return nil, err
-			}
-			return svc.Status.LoadBalancer().Ingress().Index(pulumi.Int(0)).Ip().Elem(), nil
-		})
+		//traefikExternalSvc := pulumi.All(corePach.Status.Namespace()).ApplyT(func(r interface{}) (interface{}, error) {
+		//	arr := r.([]interface{})
+		//	namespace := arr[0].(*string)
+		//
+		//	return svc.Status.LoadBalancer().Ingress().Index(pulumi.Int(0)).Ip().Elem(), nil
+		//})
 
-		arr2 := traefikExternalSvc.(pulumi.ArrayOutput)
+		// svc.Status.LoadBalancer().Ingress().Index(pulumi.Int(0)).Ip().Elem()
+		svc, err := corev1.GetService(ctx, "svc", pulumi.ID(
+			fmt.Sprintf("%v/%v", corePach.Status.Namespace().Elem(),
+				traefikRelease.Name)), nil,
+			pulumi.Timeouts(&pulumi.CustomTimeouts{Create: "10m"}),
+			pulumi.Provider(k8sProvider))
+		if err != nil {
+			log.Errorf("error getting loadbalancer IP: %v", err)
+			return err
+		}
+
+		traefikExternalOutput := svc.Status.ApplyT(func(status *corev1.ServiceStatus) (*string, error) {
+			ingress := status.LoadBalancer.Ingress[0]
+			return ingress.Ip, nil
+		}).(pulumi.StringArrayOutput)
+
+		ctx.Export("traefikip", traefikExternalOutput)
+
+		//	arr2 := traefikExternalSvc.(pulumi.ArrayOutput)
 		// if things start panicking, this might be the culprit
-		traefikExternal := arr2.Index(pulumi.Int(0)).(pulumi.StringOutput)
+		//	traefikExternal := arr2.Index(pulumi.Int(0)).(pulumi.StringOutput)
 
 		_, err = dns.NewRecordSet(ctx, "frontendRecordSet", &dns.RecordSetArgs{
 			Name:        url,
 			Type:        pulumi.String("CNAME"),
 			Ttl:         pulumi.Int(300),
 			ManagedZone: pulumi.String(managedZone),
-			Rrdatas:     pulumi.StringArray{traefikExternal},
+			Rrdatas:     traefikExternalOutput,
 		})
 
 		if err != nil {
