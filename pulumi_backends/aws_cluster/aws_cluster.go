@@ -19,11 +19,11 @@ import (
 )
 
 //import (
-//  "github.com/pachyderm/helium/pulumi_backends/gcp_namespace"
+//  "github.com/pachyderm/helium/pulumi_backends/aws_cluster"
 //)
 //
 //func main() {
-//  pulumi.Run(gcp_namespace.CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVersion, notebooksVersion, valuesYaml, createdBy string, cleanup2 bool))
+//  pulumi.Run(aws_cluster.CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVersion, notebooksVersion, valuesYaml, createdBy string, cleanup2 bool))
 //}
 
 const (
@@ -234,18 +234,18 @@ func CreatePulumiProgram(id,
 				return nil, err
 			}
 			return []interface{}{svc.Status.LoadBalancer().Ingress().Index(pulumi.Int(0)), svc.Metadata.Name().Elem()}, nil
-		})
+		}).(pulumi.StringOutput)
 
-		arr2 := traefikExternalSvc.(pulumi.ArrayOutput)
+		//arr2 := traefikExternalSvc.(pulumi.ArrayOutput)
 		// if things start panicking, this might be the culprit
-		traefikExternal := arr2.Index(pulumi.Int(0)).(pulumi.StringOutput)
+		//	traefikExternal := arr2.Index(pulumi.Int(0)).(pulumi.StringOutput)
 
 		_, err = dns.NewRecordSet(ctx, "frontendRecordSet", &dns.RecordSetArgs{
 			Name:        url,
 			Type:        pulumi.String("CNAME"),
 			Ttl:         pulumi.Int(300),
 			ManagedZone: pulumi.String(managedZone),
-			Rrdatas:     pulumi.StringArray{traefikExternal},
+			Rrdatas:     pulumi.StringArray{traefikExternalSvc},
 		})
 
 		if err != nil {
