@@ -234,18 +234,18 @@ func CreatePulumiProgram(id,
 				return nil, err
 			}
 			return svc.Status.LoadBalancer().Ingress().Index(pulumi.Int(0)).Ip().Elem(), nil
-		}).(pulumi.StringOutput)
+		})
 
-		//arr2 := traefikExternalSvc.(pulumi.ArrayOutput)
+		arr2 := traefikExternalSvc.(pulumi.ArrayOutput)
 		// if things start panicking, this might be the culprit
-		//	traefikExternal := arr2.Index(pulumi.Int(0)).(pulumi.StringOutput)
+		traefikExternal := arr2.Index(pulumi.Int(0)).(pulumi.StringOutput)
 
 		_, err = dns.NewRecordSet(ctx, "frontendRecordSet", &dns.RecordSetArgs{
 			Name:        url,
 			Type:        pulumi.String("CNAME"),
 			Ttl:         pulumi.Int(300),
 			ManagedZone: pulumi.String(managedZone),
-			Rrdatas:     pulumi.StringArray{traefikExternalSvc},
+			Rrdatas:     pulumi.StringArray{traefikExternal},
 		})
 
 		if err != nil {
