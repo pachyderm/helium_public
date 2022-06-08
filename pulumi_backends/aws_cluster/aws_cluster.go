@@ -233,7 +233,7 @@ func CreatePulumiProgram(id,
 				log.Errorf("error getting loadbalancer IP: %v", err)
 				return nil, err
 			}
-			return []interface{}{svc.Status.LoadBalancer().Ingress().Index(pulumi.Int(0)), svc.Metadata.Name().Elem()}, nil
+			return []interface{}{svc.Status.LoadBalancer().Ingress().Index(pulumi.Int(0)).Ip(), svc.Metadata.Name().Elem()}, nil
 		}).(pulumi.StringOutput)
 
 		//arr2 := traefikExternalSvc.(pulumi.ArrayOutput)
