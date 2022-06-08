@@ -243,10 +243,13 @@ func CreatePulumiProgram(id,
 			return err
 		}
 
-		traefikExternalOutput := svc.Status.ApplyT(func(status *corev1.ServiceStatus) (*string, error) {
+		traefikExternalOutput := svc.Status.ApplyT(func(status *corev1.ServiceStatus) (string, error) {
 			ingress := status.LoadBalancer.Ingress[0]
-			return ingress.Ip, nil
-		}).(pulumi.StringArrayOutput)
+			if ingress.Ip == nil {
+				return "", fmt.Errorf("empty ingress ip")
+			}
+			return *ingress.Ip, nil
+		}).(pulumi.StringOutput)
 
 		ctx.Export("traefikip", traefikExternalOutput)
 
@@ -259,7 +262,7 @@ func CreatePulumiProgram(id,
 			Type:        pulumi.String("CNAME"),
 			Ttl:         pulumi.Int(300),
 			ManagedZone: pulumi.String(managedZone),
-			Rrdatas:     traefikExternalOutput,
+			Rrdatas:     pulumi.StringArray{traefikExternalOutput},
 		})
 
 		if err != nil {
