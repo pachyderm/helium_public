@@ -245,7 +245,7 @@ func CreatePulumiProgram(id,
 			//arr := r.([]interface{})
 			namespace := args[0].(*string)
 			svcName := args[1].(*string)
-			svc, err := corev1.GetService(ctx, "svc", pulumi.ID(fmt.Sprintf("%s/%s", *namespace, svcName)), nil, pulumi.Timeouts(&pulumi.CustomTimeouts{Create: "10m"}), pulumi.Provider(k8sProvider))
+			svc, err := corev1.GetService(ctx, "svc", pulumi.ID(fmt.Sprintf("%s/%s", *namespace, *svcName)), nil, pulumi.Timeouts(&pulumi.CustomTimeouts{Create: "10m"}), pulumi.Provider(k8sProvider))
 			if err != nil {
 				log.Errorf("error getting loadbalancer IP: %v", err)
 			}
