@@ -16,6 +16,8 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 
 	log "github.com/sirupsen/logrus"
+
+	"github.com/pachyderm/helium/api"
 )
 
 //import (
@@ -48,19 +50,20 @@ func CreatePulumiProgram(id,
 	valuesYaml,
 	createdBy string,
 	cleanup2 bool,
+	infraJson *api.InfraJson,
 ) pulumi.RunFunc {
 	return func(ctx *pulumi.Context) error {
 		// TODO: remove me later...
 		cleanup2 = false
 
 		r, err := rds.NewInstance(ctx, "helium-postgresql", &rds.InstanceArgs{
-			AllocatedStorage:   pulumi.Int(1000),
+			AllocatedStorage:   pulumi.Int(infraJson.RDS.DiskSize),
 			Engine:             pulumi.String("postgres"),
-			InstanceClass:      pulumi.String("db.m6g.2xlarge"),
+			InstanceClass:      pulumi.String(infraJson.RDS.NodeType),
 			DbName:             pulumi.String("pachyderm"),
 			Password:           pulumi.String("correcthorsebatterystaple"),
 			SkipFinalSnapshot:  pulumi.Bool(true),
-			StorageType:        pulumi.String("gp2"),
+			StorageType:        pulumi.String(infraJson.RDS.DiskType),
 			Username:           pulumi.String("postgres"),
 			PubliclyAccessible: pulumi.Bool(true),
 		})
@@ -95,10 +98,10 @@ func CreatePulumiProgram(id,
 		}
 
 		cluster, err := eks.NewCluster(ctx, id, &eks.ClusterArgs{
-			InstanceType:    pulumi.String("t2.medium"),
-			DesiredCapacity: pulumi.Int(2),
-			MinSize:         pulumi.Int(1),
-			MaxSize:         pulumi.Int(2),
+			InstanceType:    pulumi.String(infraJson.K8S.Nodepools[0].NodeType),
+			DesiredCapacity: pulumi.Int(infraJson.K8S.Nodepools[0].NodeNumInstances),
+			MinSize:         pulumi.Int(0),
+			MaxSize:         pulumi.Int(infraJson.K8S.Nodepools[0].NodeNumInstances),
 		})
 		if err != nil {
 			return err
@@ -271,7 +274,6 @@ func CreatePulumiProgram(id,
 			ManagedZone: pulumi.String(managedZone),
 			Rrdatas:     pulumi.StringArray{traefikExternalOutput},
 		})
-
 		if err != nil {
 			return err
 		}

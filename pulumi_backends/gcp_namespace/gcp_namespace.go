@@ -16,6 +16,8 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 
 	log "github.com/sirupsen/logrus"
+
+	"github.com/pachyderm/helium/api"
 )
 
 const (
@@ -35,7 +37,7 @@ var (
 	auth0Domain       = "https://***REMOVED***.auth0.com/"
 )
 
-func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVersion, notebooksVersion, valuesYaml, createdBy string, cleanup2 bool) pulumi.RunFunc {
+func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVersion, notebooksVersion, valuesYaml, createdBy string, cleanup2 bool, infraJson *api.InfraJson) pulumi.RunFunc {
 	return func(ctx *pulumi.Context) error {
 		slug := "pachyderm/ci-cluster/dev"
 		stackRef, _ := pulumi.NewStackReference(ctx, slug, nil)
