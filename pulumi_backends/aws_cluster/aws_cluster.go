@@ -151,7 +151,7 @@ func CreatePulumiProgram(id,
 
 		array := []pulumi.AssetOrArchiveInput{}
 		array = append(array, pulumi.AssetOrArchiveInput(pulumi.NewFileAsset(valuesYaml)))
-		corePach, err := helm.NewRelease(ctx, "pach-release", &helm.ReleaseArgs{
+		_, err = helm.NewRelease(ctx, "pach-release", &helm.ReleaseArgs{
 			Atomic:        pulumi.Bool(cleanup2),
 			CleanupOnFail: pulumi.Bool(cleanup2),
 			Namespace:     namespace.Metadata.Elem().Name(),
@@ -213,7 +213,7 @@ func CreatePulumiProgram(id,
 			return err
 		}
 
-		result := pulumi.All(corePach.Status.Namespace()).ApplyT(func(r interface{}) ([]interface{}, error) {
+		result := pulumi.All(namespace.Metadata.Elem().Name()).ApplyT(func(r interface{}) ([]interface{}, error) {
 			arr := r.([]interface{})
 			namespace := arr[0].(*string)
 			svc, err := corev1.GetService(ctx, "svc", pulumi.ID(fmt.Sprintf("%s/pachd-lb", *namespace)), nil, pulumi.Timeouts(&pulumi.CustomTimeouts{Create: "10m"}), pulumi.Provider(k8sProvider))
@@ -241,7 +241,7 @@ func CreatePulumiProgram(id,
 		//	return err
 		//}
 
-		traefikExternalOutput := pulumi.All(corePach.Status.Namespace(), traefikRelease.Name).ApplyT(func(args []interface{}) (pulumi.StringOutput, error) {
+		traefikExternalOutput := pulumi.All(namespace.Metadata.Elem().Name(), traefikRelease.Name).ApplyT(func(args []interface{}) (pulumi.StringOutput, error) {
 			//arr := r.([]interface{})
 			namespace := args[0].(*string)
 			svcName := args[1].(*string)
