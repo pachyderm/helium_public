@@ -50,6 +50,8 @@ func CreatePulumiProgram(id,
 	cleanup2 bool,
 ) pulumi.RunFunc {
 	return func(ctx *pulumi.Context) error {
+		// TODO: remove me later...
+		cleanup2 = false
 
 		r, err := rds.NewInstance(ctx, "helium-postgresql", &rds.InstanceArgs{
 			AllocatedStorage:   pulumi.Int(1000),

@@ -8,6 +8,8 @@ RUN apt update -y && apt install -y \
     curl \
     python \
     unzip \
+    groff \
+    less \
   && rm -rf /var/lib/apt/lists/*
 
 RUN wget https://get.pulumi.com/releases/sdk/pulumi-v3.31.0-linux-x64.tar.gz
@@ -57,6 +59,10 @@ ARG HELIUM_CLIENT_SECRET
 ARG HELIUM_CLIENT_ID
 ARG PULUMI_ACCESS_TOKEN
 
+# TODO: remove TEMP for local
+ARG AWS_KEY
+ARG AWS_SECRET
+
 COPY --from=build /app/out /out
 COPY --from=build /app/root.py /root.py
 COPY --from=build /app/templates /templates
@@ -68,6 +74,12 @@ ENV HELIUM_MODE "API"
 ENV HELIUM_CLIENT_ID $HELIUM_CLIENT_ID
 ENV HELIUM_CLIENT_SECRET $HELIUM_CLIENT_SECRET
 ENV PULUMI_ACCESS_TOKEN $PULUMI_ACCESS_TOKEN
+
+# TODO: remove TEMP for local
+ENV AWS_PROFILE "default"
+ENV AWS_DEFAULT_REGION "us-west-2"
+ENV AWS_ACCESS_KEY_ID $AWS_KEY
+ENV AWS_SECRET_ACCESS_KEY $AWS_SECRET
 
 CMD ["/out"]
 
