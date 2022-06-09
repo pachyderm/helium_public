@@ -149,7 +149,7 @@ func CreatePulumiProgram(id,
 
 		urlSuffix := "fancy-elephant.com"
 		managedZone := urlSuffix + "."
-		url := pulumi.String(id + urlSuffix)
+		url := pulumi.String(id + "." + urlSuffix)
 
 		array := []pulumi.AssetOrArchiveInput{}
 		array = append(array, pulumi.AssetOrArchiveInput(pulumi.NewFileAsset(valuesYaml)))
