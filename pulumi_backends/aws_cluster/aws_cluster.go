@@ -132,7 +132,6 @@ func CreatePulumiProgram(id,
 
 		namespace, err := corev1.NewNamespace(ctx, "test-ns", &corev1.NamespaceArgs{},
 			pulumi.Provider(k8sProvider))
-
 		if err != nil {
 			return err
 		}
@@ -233,29 +232,35 @@ func CreatePulumiProgram(id,
 		//})
 
 		// svc.Status.LoadBalancer().Ingress().Index(pulumi.Int(0)).Ip().Elem()
-		svc, err := corev1.GetService(ctx, "svc", pulumi.ID(
-			fmt.Sprintf("%v/%v", corePach.Status.Namespace().Elem(),
-				traefikRelease.Name)), nil,
-			pulumi.Timeouts(&pulumi.CustomTimeouts{Create: "10m"}),
-			pulumi.Provider(k8sProvider))
-		if err != nil {
-			log.Errorf("error getting loadbalancer IP: %v", err)
-			return err
-		}
+		//serviceName := pulumi.Sprintf("%s/%s", namespace.Metadata.Elem().Name(), traefikRelease.Name)
+		//svc, err := corev1.GetService(ctx, "svc", pulumi.ID(serviceName), nil,
+		//	pulumi.Timeouts(&pulumi.CustomTimeouts{Create: "10m"}),
+		//	pulumi.Provider(k8sProvider))
+		//if err != nil {
+		//	log.Errorf("error getting loadbalancer IP: %v", err)
+		//	return err
+		//}
 
-		traefikExternalOutput := svc.Status.ApplyT(func(status *corev1.ServiceStatus) (string, error) {
-			ingress := status.LoadBalancer.Ingress[0]
-			if ingress.Ip == nil {
-				return "", fmt.Errorf("empty ingress ip")
+		traefikExternalOutput := pulumi.All(corePach.Status.Namespace(), traefikRelease.Name).ApplyT(func(args []interface{}) (pulumi.StringOutput, error) {
+			//arr := r.([]interface{})
+			namespace := args[0].(*string)
+			svcName := args[1].(*string)
+			svc, err := corev1.GetService(ctx, "svc", pulumi.ID(fmt.Sprintf("%s/%s", *namespace, svcName)), nil, pulumi.Timeouts(&pulumi.CustomTimeouts{Create: "10m"}), pulumi.Provider(k8sProvider))
+			if err != nil {
+				log.Errorf("error getting loadbalancer IP: %v", err)
 			}
-			return *ingress.Ip, nil
+			return svc.Status.LoadBalancer().Ingress().Index(pulumi.Int(0)).Ip().Elem(), nil
 		}).(pulumi.StringOutput)
 
-		ctx.Export("traefikip", traefikExternalOutput)
+		//traefikExternalOutput := svcOut.Status.ApplyT(func(status *corev1.ServiceStatus) (string, error) {
+		//	ingress := status.LoadBalancer.Ingress[0]
+		//	if ingress.Ip == nil {
+		//		return "", fmt.Errorf("empty ingress ip")
+		//	}
+		//	return *ingress.Ip, nil
+		//}).(pulumi.StringOutput)
 
-		//	arr2 := traefikExternalSvc.(pulumi.ArrayOutput)
-		// if things start panicking, this might be the culprit
-		//	traefikExternal := arr2.Index(pulumi.Int(0)).(pulumi.StringOutput)
+		ctx.Export("traefikip", traefikExternalOutput)
 
 		_, err = dns.NewRecordSet(ctx, "frontendRecordSet", &dns.RecordSetArgs{
 			Name:        url,
