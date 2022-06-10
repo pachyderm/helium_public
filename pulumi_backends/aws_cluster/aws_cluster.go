@@ -161,7 +161,8 @@ func CreatePulumiProgram(id,
 			if err != nil {
 				log.Errorf("error getting loadbalancer IP: %v", err)
 			}
-			return svc.Status.LoadBalancer().Ingress().Index(pulumi.Int(0)).Ip().Elem(), nil
+			// Hostname is used instead of IP for aws loadbalancers
+			return svc.Status.LoadBalancer().Ingress().Index(pulumi.Int(0)).Hostname().Elem(), nil
 		}).(pulumi.StringOutput)
 
 		_, err = dns.NewRecordSet(ctx, "traefik-test-ci-record-set", &dns.RecordSetArgs{
@@ -259,7 +260,8 @@ func CreatePulumiProgram(id,
 			if err != nil {
 				log.Errorf("error getting loadbalancer IP: %v", err)
 			}
-			return svc.Status.LoadBalancer().Ingress().Index(pulumi.Int(0)).Ip().Elem(), nil
+			// Hostname is used instead of IP for aws loadbalancers
+			return svc.Status.LoadBalancer().Ingress().Index(pulumi.Int(0)).Hostname().Elem(), nil
 		}).(pulumi.StringOutput)
 
 		_, err = dns.NewRecordSet(ctx, "pachdlb-test-ci-record-set", &dns.RecordSetArgs{
