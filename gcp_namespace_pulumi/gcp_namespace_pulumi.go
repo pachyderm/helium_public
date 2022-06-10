@@ -38,6 +38,9 @@ const (
 	BackendName         = "gcp-namespace-pulumi"
 	timeFormat          = "2006-01-02"
 	DefaultJupyterImage = "v0.5.1"
+	// This is an internal GCP ID, not sure if it's exposed at all through pulumi.  I got it by doing a GET call directly against their API here:
+	// https://cloud.google.com/dns/docs/reference/v1/managedZones/get?apix_params=%7B%22project%22%3A%22***REMOVED***%22%2C%22managedZone%22%3A%22test-ci%22%7D
+	TestCiManagedZoneGcpId = "***REMOVED***"
 )
 
 var (
@@ -105,8 +108,11 @@ func (r *Runner) GetConnectionInfo(i api.ID) (*api.GetConnectionInfoResponse, er
 				},
 			}, nil
 		}
-		pachdip := outs["pachdip"].Value.(map[string]interface{})["ip"].(string)
-		pachdAddress := fmt.Sprintf("echo '{\"pachd_address\": \"%v://%v:%v\", \"source\": 2}' | tr -d \\ | pachctl config set context %v --overwrite && pachctl config set active-context %v", "grpc", pachdip, "30651", outs["k8sNamespace"].Value.(string), outs["k8sNamespace"].Value.(string))
+		var pachdUrl string
+		if pachdUrl, ok = outs["pachd-lb-url"].Value.(string); !ok {
+			pachdUrl = outs["pachdip"].Value.(map[string]interface{})["ip"].(string)
+		}
+		pachdAddress := fmt.Sprintf("echo '{\"pachd_address\": \"%v://%v:%v\", \"source\": 2}' | tr -d \\ | pachctl config set context %v --overwrite && pachctl config set active-context %v", "grpc", pachdUrl, "30651", outs["k8sNamespace"].Value.(string), outs["k8sNamespace"].Value.(string))
 		var createdBy string
 		if createdBy, ok = outs["createdBy"].Value.(string); !ok {
 			createdBy = ""
@@ -123,7 +129,7 @@ func (r *Runner) GetConnectionInfo(i api.ID) (*api.GetConnectionInfoResponse, er
 			NotebooksURL: "https://" + outs["juypterUrl"].Value.(string),
 			GCSBucket:    outs["bucket"].Value.(string),
 			Expiry:       outs["helium-expiry"].Value.(string),
-			PachdIp:      "grpc://" + pachdip + ":30651",
+			PachdIp:      "grpc://" + pachdUrl + ":30651",
 			Pachctl:      pachdAddress,
 			CreatedBy:    createdBy,
 		}}, nil
@@ -342,6 +348,14 @@ func createPulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 			return err
 		}
 
+		urlSuffix := "***REMOVED***"
+		pachdUrl := pulumi.String(id + "." + urlSuffix)
+
+		testCiManagedZone, err := dns.GetManagedZone(ctx, "test-ci", pulumi.ID(pulumi.String(TestCiManagedZoneGcpId)), nil)
+		if err != nil {
+			return err
+		}
+
 		bucket, err := storage.NewBucket(ctx, "pach-bucket", &storage.BucketArgs{
 			Location:     pulumi.String("US"),
 			ForceDestroy: pulumi.Bool(true),
@@ -427,11 +441,11 @@ func createPulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 		}
 
 		pachdValues := pulumi.Map{
-			"pachAuthClusterRoleBindings": pulumi.Map{
-				"pachAuthClusterRoleBindings": pulumi.Map{
-					"allClusterUsers": pulumi.StringArray{pulumi.String("clusterAdmin")},
-				},
-			},
+			//"pachAuthClusterRoleBindings": pulumi.Map{
+			//	"pachAuthClusterRoleBindings": pulumi.Map{
+			//		"allClusterUsers": pulumi.StringArray{pulumi.String("clusterAdmin")},
+			//	},
+			//},
 			"externalService": pulumi.Map{
 				"enabled": pulumi.Bool(true),
 				//						"loadBalancerIP": ipAddress,
@@ -460,11 +474,11 @@ func createPulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 				"image": pulumi.Map{
 					"tag": pulumi.String(pachdVersion),
 				},
-				"pachAuthClusterRoleBindings": pulumi.Map{
-					"pachAuthClusterRoleBindings": pulumi.Map{
-						"allClusterUsers": pulumi.StringArray{pulumi.String("clusterAdmin")},
-					},
-				},
+				//"pachAuthClusterRoleBindings": pulumi.Map{
+				//	"pachAuthClusterRoleBindings": pulumi.Map{
+				//		"allClusterUsers": pulumi.StringArray{pulumi.String("clusterAdmin")},
+				//	},
+				//},
 				"externalService": pulumi.Map{
 					"enabled": pulumi.Bool(true),
 					//						"loadBalancerIP": ipAddress,
@@ -542,19 +556,8 @@ func createPulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 		if err != nil {
 			return err
 		}
-		result := pulumi.All(corePach.Status.Namespace()).ApplyT(func(r interface{}) ([]interface{}, error) {
-			arr := r.([]interface{})
-			namespace := arr[0].(*string)
-			svc, err := corev1.GetService(ctx, "svc", pulumi.ID(fmt.Sprintf("%s/pachd-lb", *namespace)), nil, pulumi.Timeouts(&pulumi.CustomTimeouts{Create: "10m"}), pulumi.Provider(k8sProvider))
-			if err != nil {
-				log.Errorf("error getting loadbalancer IP: %v", err)
-				return nil, err
-			}
-			return []interface{}{svc.Status.LoadBalancer().Ingress().Index(pulumi.Int(0)), svc.Metadata.Name().Elem()}, nil
-		})
 
 		gcpL4LoadBalancerIP := pulumi.All(corePach.Status.Namespace()).ApplyT(func(args []interface{}) (pulumi.StringOutput, error) {
-			//arr := r.([]interface{})
 			namespace := args[0].(*string)
 			svc, err := corev1.GetService(ctx, "svc", pulumi.ID(fmt.Sprintf("%s/pachd-lb", *namespace)), nil, pulumi.Timeouts(&pulumi.CustomTimeouts{Create: "10m"}), pulumi.Provider(k8sProvider))
 			if err != nil {
@@ -563,25 +566,12 @@ func createPulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 			return svc.Status.LoadBalancer().Ingress().Index(pulumi.Int(0)).Ip().Elem(), nil
 		}).(pulumi.StringOutput)
 
-		urlSuffix := "fancy-elephant.com"
-		managedZone := urlSuffix + "."
-		pachdUrl := pulumi.String(id + "." + urlSuffix)
-
-		//traefikExternalOutput := svcOut.Status.ApplyT(func(status *corev1.ServiceStatus) (string, error) {
-		//	ingress := status.LoadBalancer.Ingress[0]
-		//	if ingress.Ip == nil {
-		//		return "", fmt.Errorf("empty ingress ip")
-		//	}
-		//	return *ingress.Ip, nil
-		//}).(pulumi.StringOutput)
-
-		ctx.Export("pachdlbip", gcpL4LoadBalancerIP)
-
 		_, err = dns.NewRecordSet(ctx, "frontendRecordSet", &dns.RecordSetArgs{
-			Name:        pachdUrl,
-			Type:        pulumi.String("CNAME"),
+			Name: pachdUrl + ".",
+			// TODO: This will be a CNAME for AWS?
+			Type:        pulumi.String("A"),
 			Ttl:         pulumi.Int(300),
-			ManagedZone: pulumi.String(managedZone),
+			ManagedZone: testCiManagedZone.Name,
 			Rrdatas:     pulumi.StringArray{gcpL4LoadBalancerIP},
 		})
 		if err != nil {
@@ -674,15 +664,16 @@ func createPulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 			return err
 		}
 
-		arr := result.(pulumi.ArrayOutput)
 		ctx.Export("createdBy", pulumi.String(createdBy))
 		ctx.Export("status", pulumi.String("ready"))
-		ctx.Export("pachdip", arr.Index(pulumi.Int(0)))
+		ctx.Export("pachdip", gcpL4LoadBalancerIP)
 		ctx.Export("juypterUrl", juypterURL)
 		ctx.Export("consoleUrl", consoleUrl)
 		ctx.Export("k8sNamespace", namespace.Metadata.Elem().Name())
 		ctx.Export("bucket", bucket.Name)
 		ctx.Export("helium-expiry", pulumi.String(expiry))
+		ctx.Export("pachd-lb-ip", gcpL4LoadBalancerIP)
+		ctx.Export("pachd-lb-url", pachdUrl)
 
 		return nil
 	}
