@@ -86,11 +86,29 @@ func main() {
 	log.SetReportCaller(true)
 
 	mode := os.Getenv("HELIUM_MODE")
+
 	env := os.Getenv("HELIUM_ENV")
 	if env == "PROD" {
 		// TODO: // HACK:
 		cmd := exec.Command("gcloud", "auth", "login", "--cred-file=/var/secrets/google/key.json")
 		err := cmd.Run()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		// TODO: HACK
+		cmd = exec.Command("aws", "configure", "set", "region", "us-west-2")
+		err = cmd.Run()
+		if err != nil {
+			log.Fatal(err)
+		}
+		cmd = exec.Command("aws", "configure", "set", "aws_access_key_id", os.Getenv("AWS_ACCESS_KEY_ID"), "--profile", "default")
+		err = cmd.Run()
+		if err != nil {
+			log.Fatal(err)
+		}
+		cmd = exec.Command("aws", "configure", "set", "aws_secret_access_key", os.Getenv("AWS_SECRET_ACCESS_KEY"), "--profile", "default")
+		err = cmd.Run()
 		if err != nil {
 			log.Fatal(err)
 		}

@@ -39,6 +39,10 @@ RUN chmod +x ./aws-iam-authenticator
 RUN mkdir -p $HOME/bin && cp ./aws-iam-authenticator $HOME/bin/aws-iam-authenticator && export PATH=$PATH:$HOME/bin
 RUN echo 'export PATH=$PATH:$HOME/bin' >> ~/.bashrc
 
+RUN curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl && \
+  chmod +x kubectl && \
+  mv kubectl /usr/local/bin
+
 FROM golang:1.17 AS build
 
 WORKDIR /app
@@ -66,6 +70,9 @@ ARG AWS_SECRET
 COPY --from=build /app/out /out
 COPY --from=build /app/root.py /root.py
 COPY --from=build /app/templates /templates
+
+# TODO: remove this
+COPY --from=build /app/key.json /var/secrets/google/key.json
 
 ENV PATH $PATH:/usr/local/gcloud/google-cloud-sdk/bin
 ENV PATH "${HOME}/pulumi:$PATH"

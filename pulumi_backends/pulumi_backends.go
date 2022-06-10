@@ -271,12 +271,12 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 	case "gcp_namespace":
 		// TODO: remove debugging function in followup PR
 		log.Debug("pulumi backend gcp namespace explitly specified")
-		program = gcp_namespace.CreatePulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML, req.CreatedBy, cleanup, req.InfraJSONContent)
+		program = gcp_namespace.CreatePulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML, req.CreatedBy, cleanup, &req.InfraJSONContent)
 	case "aws_cluster":
-		program = aws_cluster.CreatePulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML, req.CreatedBy, cleanup, req.InfraJSONContent)
+		program = aws_cluster.CreatePulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML, req.CreatedBy, cleanup, &req.InfraJSONContent)
 		//
 	default:
-		program = gcp_namespace.CreatePulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML, req.CreatedBy, cleanup, req.InfraJSONContent)
+		program = gcp_namespace.CreatePulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML, req.CreatedBy, cleanup, &req.InfraJSONContent)
 	}
 
 	s, err := auto.SelectStackInlineSource(ctx, stackName, project, program)
@@ -378,6 +378,11 @@ func ensurePlugins() {
 	err = w.InstallPlugin(ctx, "eks", "v0.40.0")
 	if err != nil {
 		fmt.Printf("Failed to install program plugins: %v\n", err)
+		os.Exit(1)
+	}
+	err = w.InstallPlugin(ctx, "postgresql", "v3.4.0")
+	if err != nil {
+		fmt.Printf(("Failed to install program plugins: %v\n"), err)
 		os.Exit(1)
 	}
 }
