@@ -31,6 +31,9 @@ import (
 const (
 	BackendName = "aws-cluster"
 	timeFormat  = "2006-01-02"
+	// This is an internal GCP ID, not sure if it's exposed at all through pulumi.  I got it by doing a GET call directly against their API here:
+	// https://cloud.google.com/dns/docs/reference/v1/managedZones/get?apix_params=%7B%22project%22%3A%22***REMOVED***%22%2C%22managedZone%22%3A%22test-ci%22%7D
+	TestCiManagedZoneGcpId = "***REMOVED***"
 )
 
 var (
@@ -55,6 +58,14 @@ func CreatePulumiProgram(id,
 	return func(ctx *pulumi.Context) error {
 		// TODO: remove me later...
 		cleanup2 = false
+
+		urlSuffix := "***REMOVED***"
+		url := pulumi.String(id + "." + urlSuffix)
+
+		testCiManagedZone, err := dns.GetManagedZone(ctx, "test-ci", pulumi.ID(pulumi.String(TestCiManagedZoneGcpId)), nil)
+		if err != nil {
+			return err
+		}
 
 		r, err := rds.NewInstance(ctx, "helium-postgresql", &rds.InstanceArgs{
 			AllocatedStorage:   pulumi.Int(infraJson.RDS.DiskSize),
@@ -150,9 +161,9 @@ func CreatePulumiProgram(id,
 		// 	return errors.New("Need to supply env var PACH_ENTERPRISE_TOKEN")
 		// }
 
-		urlSuffix := "fancy-elephant.com"
-		managedZone := urlSuffix + "."
-		url := pulumi.String(id + "." + urlSuffix)
+		//urlSuffix := "fancy-elephant.com"
+		//managedZone := urlSuffix + "."
+		//url := pulumi.String(id + "." + urlSuffix)
 
 		array := []pulumi.AssetOrArchiveInput{}
 		array = append(array, pulumi.AssetOrArchiveInput(pulumi.NewFileAsset(valuesYaml)))
@@ -218,16 +229,55 @@ func CreatePulumiProgram(id,
 			return err
 		}
 
-		result := pulumi.All(corePach.Status.Namespace()).ApplyT(func(r interface{}) ([]interface{}, error) {
-			arr := r.([]interface{})
-			namespace := arr[0].(*string)
+		loadBalancerIP := pulumi.All(corePach.Status.Namespace()).ApplyT(func(args []interface{}) (pulumi.StringOutput, error) {
+			namespace := args[0].(*string)
 			svc, err := corev1.GetService(ctx, "svc", pulumi.ID(fmt.Sprintf("%s/pachd-lb", *namespace)), nil, pulumi.Timeouts(&pulumi.CustomTimeouts{Create: "10m"}), pulumi.Provider(k8sProvider))
 			if err != nil {
 				log.Errorf("error getting loadbalancer IP: %v", err)
-				return nil, err
 			}
-			return []interface{}{svc.Status.LoadBalancer().Ingress().Index(pulumi.Int(0)), svc.Metadata.Name().Elem()}, nil
+			return svc.Status.LoadBalancer().Ingress().Index(pulumi.Int(0)).Ip().Elem(), nil
+		}).(pulumi.StringOutput)
+
+		_, err = dns.NewRecordSet(ctx, "pachdlb-test-ci-record-set", &dns.RecordSetArgs{
+			Name: url + ".",
+			// TODO: This will be a CNAME for AWS?
+			Type:        pulumi.String("CNAME"),
+			Ttl:         pulumi.Int(300),
+			ManagedZone: testCiManagedZone.Name,
+			Rrdatas:     pulumi.StringArray{loadBalancerIP},
 		})
+		if err != nil {
+			return err
+		}
+
+		traefikExternalOutput := pulumi.All(corePach.Status.Namespace(), traefikRelease.Name).ApplyT(func(args []interface{}) (pulumi.StringOutput, error) {
+			//arr := r.([]interface{})
+			namespace := args[0].(*string)
+			svcName := args[1].(*string)
+			svc, err := corev1.GetService(ctx, "svc", pulumi.ID(fmt.Sprintf("%s/%s", *namespace, *svcName)), nil, pulumi.Timeouts(&pulumi.CustomTimeouts{Create: "10m"}), pulumi.Provider(k8sProvider))
+			if err != nil {
+				log.Errorf("error getting loadbalancer IP: %v", err)
+			}
+			return svc.Status.LoadBalancer().Ingress().Index(pulumi.Int(0)).Ip().Elem(), nil
+		}).(pulumi.StringOutput)
+
+		_, err = dns.NewRecordSet(ctx, "traefik-test-ci-record-set", &dns.RecordSetArgs{
+			Name: url + ".",
+			// TODO: This will be a CNAME for AWS?
+			Type:        pulumi.String("CNAME"),
+			Ttl:         pulumi.Int(300),
+			ManagedZone: testCiManagedZone.Name,
+			Rrdatas:     pulumi.StringArray{traefikExternalOutput},
+		})
+		if err != nil {
+			return err
+		}
+
+		////
+		////
+		////
+		////
+		///
 
 		//traefikExternalSvc := pulumi.All(corePach.Status.Namespace()).ApplyT(func(r interface{}) (interface{}, error) {
 		//	arr := r.([]interface{})
@@ -246,17 +296,6 @@ func CreatePulumiProgram(id,
 		//	return err
 		//}
 
-		traefikExternalOutput := pulumi.All(corePach.Status.Namespace(), traefikRelease.Name).ApplyT(func(args []interface{}) (pulumi.StringOutput, error) {
-			//arr := r.([]interface{})
-			namespace := args[0].(*string)
-			svcName := args[1].(*string)
-			svc, err := corev1.GetService(ctx, "svc", pulumi.ID(fmt.Sprintf("%s/%s", *namespace, *svcName)), nil, pulumi.Timeouts(&pulumi.CustomTimeouts{Create: "10m"}), pulumi.Provider(k8sProvider))
-			if err != nil {
-				log.Errorf("error getting loadbalancer IP: %v", err)
-			}
-			return svc.Status.LoadBalancer().Ingress().Index(pulumi.Int(0)).Ip().Elem(), nil
-		}).(pulumi.StringOutput)
-
 		//traefikExternalOutput := svcOut.Status.ApplyT(func(status *corev1.ServiceStatus) (string, error) {
 		//	ingress := status.LoadBalancer.Ingress[0]
 		//	if ingress.Ip == nil {
@@ -265,23 +304,22 @@ func CreatePulumiProgram(id,
 		//	return *ingress.Ip, nil
 		//}).(pulumi.StringOutput)
 
-		ctx.Export("traefikip", traefikExternalOutput)
+		//	ctx.Export("traefikip", traefikExternalOutput)
+		//
+		//	_, err = dns.NewRecordSet(ctx, "frontendRecordSet", &dns.RecordSetArgs{
+		//		Name:        url,
+		//		Type:        pulumi.String("CNAME"),
+		//		Ttl:         pulumi.Int(300),
+		//		ManagedZone: pulumi.String(managedZone),
+		//		Rrdatas:     pulumi.StringArray{traefikExternalOutput},
+		//	})
+		//	if err != nil {
+		//		return err
+		//	}
 
-		_, err = dns.NewRecordSet(ctx, "frontendRecordSet", &dns.RecordSetArgs{
-			Name:        url,
-			Type:        pulumi.String("CNAME"),
-			Ttl:         pulumi.Int(300),
-			ManagedZone: pulumi.String(managedZone),
-			Rrdatas:     pulumi.StringArray{traefikExternalOutput},
-		})
-		if err != nil {
-			return err
-		}
-
-		arr := result.(pulumi.ArrayOutput)
 		ctx.Export("createdBy", pulumi.String(createdBy))
 		ctx.Export("status", pulumi.String("ready"))
-		ctx.Export("pachdip", arr.Index(pulumi.Int(0)))
+		ctx.Export("pachdip", loadBalancerIP)
 		ctx.Export("juypterUrl", pulumi.String("comming soon.."))
 		ctx.Export("consoleUrl", pulumi.String(url))
 		ctx.Export("k8sNamespace", namespace.Metadata.Elem().Name())
@@ -290,6 +328,8 @@ func CreatePulumiProgram(id,
 		//cluster.EksCluster.Name()
 		ctx.Export("k8sConnection", pulumi.String(fmt.Sprintf("aws eks --region us-west-2 update-kubeconfig --name %s", "hi")))
 		ctx.Export("backend", pulumi.String(BackendName))
+		ctx.Export("pachd-lb-ip", loadBalancerIP)
+		ctx.Export("pachd-lb-url", url)
 
 		return nil
 	}
