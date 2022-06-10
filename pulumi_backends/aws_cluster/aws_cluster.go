@@ -135,19 +135,20 @@ func CreatePulumiProgram(id,
 			return err
 		}
 
-		traefikRelease, err := helm.NewRelease(ctx, "traefik", &helm.ReleaseArgs{
-			RepositoryOpts: helm.RepositoryOptsArgs{
-				Repo: pulumi.String("https://helm.traefik.io/traefik"),
-			},
-			Chart: pulumi.String("traefik"),
-		}, pulumi.Provider(k8sProvider))
-
+		namespace, err := corev1.NewNamespace(ctx, "test-ns", &corev1.NamespaceArgs{},
+			pulumi.Provider(k8sProvider))
 		if err != nil {
 			return err
 		}
 
-		namespace, err := corev1.NewNamespace(ctx, "test-ns", &corev1.NamespaceArgs{},
-			pulumi.Provider(k8sProvider))
+		traefikRelease, err := helm.NewRelease(ctx, "traefik", &helm.ReleaseArgs{
+			RepositoryOpts: helm.RepositoryOptsArgs{
+				Repo: pulumi.String("https://helm.traefik.io/traefik"),
+			},
+			Chart:     pulumi.String("traefik"),
+			Namespace: namespace.Metadata.Elem().Name(),
+		}, pulumi.Provider(k8sProvider))
+
 		if err != nil {
 			return err
 		}
