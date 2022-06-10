@@ -67,47 +67,6 @@ func CreatePulumiProgram(id,
 			return err
 		}
 
-		r, err := rds.NewInstance(ctx, "helium-postgresql", &rds.InstanceArgs{
-			AllocatedStorage:   pulumi.Int(infraJson.RDS.DiskSize),
-			Engine:             pulumi.String("postgres"),
-			InstanceClass:      pulumi.String(infraJson.RDS.NodeType),
-			DbName:             pulumi.String("pachyderm"),
-			Password:           pulumi.String("correcthorsebatterystaple"),
-			SkipFinalSnapshot:  pulumi.Bool(true),
-			StorageType:        pulumi.String(infraJson.RDS.DiskType),
-			Username:           pulumi.String("postgres"),
-			PubliclyAccessible: pulumi.Bool(true),
-		})
-
-		if err != nil {
-			return err
-		}
-
-		postgresProvider, err := postgresql.NewProvider(ctx, "helium-postgresql", &postgresql.ProviderArgs{
-			Host:     r.Address,
-			Port:     r.Port,
-			Username: r.Username,
-			Password: r.Password,
-		})
-
-		if err != nil {
-			return err
-		}
-
-		dexDb, err := postgresql.NewDatabase(ctx, "dex", &postgresql.DatabaseArgs{}, pulumi.Provider(postgresProvider))
-
-		if err != nil {
-			return err
-		}
-
-		bucket, err := s3.NewBucket(ctx, "helium-bucket", &s3.BucketArgs{
-			Acl: pulumi.String("public-read-write"),
-		})
-
-		if err != nil {
-			return err
-		}
-
 		cluster, err := eks.NewCluster(ctx, id, &eks.ClusterArgs{
 			InstanceType:    pulumi.String(infraJson.K8S.Nodepools[0].NodeType),
 			DesiredCapacity: pulumi.Int(infraJson.K8S.Nodepools[0].NodeNumInstances),
@@ -173,6 +132,47 @@ func CreatePulumiProgram(id,
 			ManagedZone: testCiManagedZone.Name,
 			Rrdatas:     pulumi.StringArray{traefikExternalOutput},
 		})
+		if err != nil {
+			return err
+		}
+
+		r, err := rds.NewInstance(ctx, "helium-postgresql", &rds.InstanceArgs{
+			AllocatedStorage:   pulumi.Int(infraJson.RDS.DiskSize),
+			Engine:             pulumi.String("postgres"),
+			InstanceClass:      pulumi.String(infraJson.RDS.NodeType),
+			DbName:             pulumi.String("pachyderm"),
+			Password:           pulumi.String("correcthorsebatterystaple"),
+			SkipFinalSnapshot:  pulumi.Bool(true),
+			StorageType:        pulumi.String(infraJson.RDS.DiskType),
+			Username:           pulumi.String("postgres"),
+			PubliclyAccessible: pulumi.Bool(true),
+		})
+
+		if err != nil {
+			return err
+		}
+
+		postgresProvider, err := postgresql.NewProvider(ctx, "helium-postgresql", &postgresql.ProviderArgs{
+			Host:     r.Address,
+			Port:     r.Port,
+			Username: r.Username,
+			Password: r.Password,
+		})
+
+		if err != nil {
+			return err
+		}
+
+		dexDb, err := postgresql.NewDatabase(ctx, "dex", &postgresql.DatabaseArgs{}, pulumi.Provider(postgresProvider))
+
+		if err != nil {
+			return err
+		}
+
+		bucket, err := s3.NewBucket(ctx, "helium-bucket", &s3.BucketArgs{
+			Acl: pulumi.String("public-read-write"),
+		})
+
 		if err != nil {
 			return err
 		}
