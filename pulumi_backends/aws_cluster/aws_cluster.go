@@ -104,19 +104,19 @@ func CreatePulumiProgram(id,
 			RepositoryOpts: helm.RepositoryOptsArgs{
 				Repo: pulumi.String("https://helm.traefik.io/traefik"),
 			},
-			Chart:     pulumi.String("traefik"),
-			Namespace: namespace.Metadata.Elem().Name(),
+			Chart: pulumi.String("traefik"),
+			//Namespace: namespace.Metadata.Elem().Name(),
 		}, pulumi.Provider(k8sProvider))
 
 		if err != nil {
 			return err
 		}
 
-		traefikExternalOutput := pulumi.All(namespace.Metadata.Elem().Name(), traefikRelease.Name).ApplyT(func(args []interface{}) (pulumi.StringOutput, error) {
+		traefikExternalOutput := pulumi.All(traefikRelease.Name).ApplyT(func(args []interface{}) (pulumi.StringOutput, error) {
 			//arr := r.([]interface{})
-			namespace := args[0].(*string)
+			//	namespace := args[0].(*string)
 			svcName := args[1].(*string)
-			svc, err := corev1.GetService(ctx, "svc", pulumi.ID(fmt.Sprintf("%s/%s", *namespace, *svcName)), nil, pulumi.Timeouts(&pulumi.CustomTimeouts{Create: "10m"}), pulumi.Provider(k8sProvider))
+			svc, err := corev1.GetService(ctx, "svc", pulumi.ID(fmt.Sprintf("%s/%s", "default", *svcName)), nil, pulumi.Timeouts(&pulumi.CustomTimeouts{Create: "10m"}), pulumi.Provider(k8sProvider))
 			if err != nil {
 				log.Errorf("error getting loadbalancer IP: %v", err)
 			}
