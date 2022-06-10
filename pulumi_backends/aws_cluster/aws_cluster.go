@@ -112,17 +112,18 @@ func CreatePulumiProgram(id,
 			return err
 		}
 
-		traefikExternalOutput := pulumi.All(traefikRelease.Status.Name()).ApplyT(func(args []interface{}) (pulumi.StringOutput, error) {
+		traefikExternalOutput := pulumi.All(traefikRelease.Status.Name()).ApplyT(func(args []interface{}) (interface{}, error) {
 			//arr := r.([]interface{})
 			//	namespace := args[0].(*string)
 			svcName := args[0].(*string)
 			svc, err := corev1.GetService(ctx, "traefik-svc", pulumi.ID(fmt.Sprintf("%s/%s", "default", *svcName)), nil, pulumi.Timeouts(&pulumi.CustomTimeouts{Create: "15m"}), pulumi.Provider(k8sProvider))
 			if err != nil {
 				log.Errorf("error getting loadbalancer IP: %v", err)
+				return nil, err
 			}
 			// Hostname is used instead of IP for aws loadbalancers
 			return svc.Status.LoadBalancer().Ingress().Index(pulumi.Int(0)).Hostname().Elem(), nil
-		}).(pulumi.StringOutput)
+		})
 
 		// Add trailing . to rrdatas
 		_, err = dns.NewRecordSet(ctx, "traefik-test-ci-record-set", &dns.RecordSetArgs{
@@ -271,7 +272,7 @@ func CreatePulumiProgram(id,
 			Type:        pulumi.String("CNAME"),
 			Ttl:         pulumi.Int(300),
 			ManagedZone: testCiManagedZone.Name,
-			Rrdatas:     pulumi.StringArray{loadBalancerIP},
+			Rrdatas:     pulumi.StringArray{pulumi.Sprintf("%s.", loadBalancerIP)},
 		})
 		if err != nil {
 			return err
