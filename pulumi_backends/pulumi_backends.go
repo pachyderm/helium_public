@@ -278,7 +278,6 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 	default:
 		program = gcp_namespace.CreatePulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML, req.CreatedBy, cleanup, &req.InfraJSONContent)
 	}
-
 	s, err := auto.SelectStackInlineSource(ctx, stackName, project, program)
 	if err != nil {
 		if auto.IsSelectStack404Error(err) {
@@ -290,8 +289,8 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 			return nil, err
 		}
 	}
-	//s.SetConfig(ctx, "gcp:project", auto.ConfigValue{Value: "***REMOVED***"})
-	//s.SetConfig(ctx, "gcp:zone", auto.ConfigValue{Value: "us-east1-b"})
+	s.SetConfig(ctx, "gcp:project", auto.ConfigValue{Value: "***REMOVED***"})
+	s.SetConfig(ctx, "gcp:zone", auto.ConfigValue{Value: "us-east1-b"})
 
 	// deploy the stack
 	// we'll write all of the update logs to st	out so we can watch requests get processed
