@@ -124,13 +124,14 @@ func CreatePulumiProgram(id,
 			return svc.Status.LoadBalancer().Ingress().Index(pulumi.Int(0)).Hostname().Elem(), nil
 		}).(pulumi.StringOutput)
 
+		// Add trailing . to rrdatas
 		_, err = dns.NewRecordSet(ctx, "traefik-test-ci-record-set", &dns.RecordSetArgs{
 			Name: url + ".",
 			// TODO: This will be a CNAME for AWS?
 			Type:        pulumi.String("CNAME"),
 			Ttl:         pulumi.Int(300),
 			ManagedZone: testCiManagedZone.Name,
-			Rrdatas:     pulumi.StringArray{traefikExternalOutput},
+			Rrdatas:     pulumi.StringArray{pulumi.Sprintf("%s.", traefikExternalOutput)},
 		})
 		if err != nil {
 			return err
