@@ -152,6 +152,29 @@ func CreatePulumiProgram(id,
 			return err
 		}
 
+		traefikExternalOutput := pulumi.All(namespace.Metadata.Elem().Name(), traefikRelease.Name).ApplyT(func(args []interface{}) (pulumi.StringOutput, error) {
+			//arr := r.([]interface{})
+			namespace := args[0].(*string)
+			svcName := args[1].(*string)
+			svc, err := corev1.GetService(ctx, "svc", pulumi.ID(fmt.Sprintf("%s/%s", *namespace, *svcName)), nil, pulumi.Timeouts(&pulumi.CustomTimeouts{Create: "10m"}), pulumi.Provider(k8sProvider))
+			if err != nil {
+				log.Errorf("error getting loadbalancer IP: %v", err)
+			}
+			return svc.Status.LoadBalancer().Ingress().Index(pulumi.Int(0)).Ip().Elem(), nil
+		}).(pulumi.StringOutput)
+
+		_, err = dns.NewRecordSet(ctx, "traefik-test-ci-record-set", &dns.RecordSetArgs{
+			Name: url + ".",
+			// TODO: This will be a CNAME for AWS?
+			Type:        pulumi.String("CNAME"),
+			Ttl:         pulumi.Int(300),
+			ManagedZone: testCiManagedZone.Name,
+			Rrdatas:     pulumi.StringArray{traefikExternalOutput},
+		})
+		if err != nil {
+			return err
+		}
+
 		//enterpriseKey := os.Getenv("PACH_ENTERPRISE_TOKEN")
 
 		awsSAkey := os.Getenv("AWS_ACCESS_KEY_ID")
@@ -245,29 +268,6 @@ func CreatePulumiProgram(id,
 			Ttl:         pulumi.Int(300),
 			ManagedZone: testCiManagedZone.Name,
 			Rrdatas:     pulumi.StringArray{loadBalancerIP},
-		})
-		if err != nil {
-			return err
-		}
-
-		traefikExternalOutput := pulumi.All(corePach.Status.Namespace(), traefikRelease.Name).ApplyT(func(args []interface{}) (pulumi.StringOutput, error) {
-			//arr := r.([]interface{})
-			namespace := args[0].(*string)
-			svcName := args[1].(*string)
-			svc, err := corev1.GetService(ctx, "svc", pulumi.ID(fmt.Sprintf("%s/%s", *namespace, *svcName)), nil, pulumi.Timeouts(&pulumi.CustomTimeouts{Create: "10m"}), pulumi.Provider(k8sProvider))
-			if err != nil {
-				log.Errorf("error getting loadbalancer IP: %v", err)
-			}
-			return svc.Status.LoadBalancer().Ingress().Index(pulumi.Int(0)).Ip().Elem(), nil
-		}).(pulumi.StringOutput)
-
-		_, err = dns.NewRecordSet(ctx, "traefik-test-ci-record-set", &dns.RecordSetArgs{
-			Name: url + ".",
-			// TODO: This will be a CNAME for AWS?
-			Type:        pulumi.String("CNAME"),
-			Ttl:         pulumi.Int(300),
-			ManagedZone: testCiManagedZone.Name,
-			Rrdatas:     pulumi.StringArray{traefikExternalOutput},
 		})
 		if err != nil {
 			return err
