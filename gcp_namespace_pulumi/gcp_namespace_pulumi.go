@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/pulumi/pulumi-gcp/sdk/v6/go/gcp/compute"
+	"github.com/pulumi/pulumi-gcp/sdk/v6/go/gcp/dns"
 	"github.com/pulumi/pulumi-gcp/sdk/v6/go/gcp/storage"
 	"github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes"
 	corev1 "github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/core/v1"
@@ -34,8 +35,9 @@ func init() {
 }
 
 const (
-	BackendName = "gcp-namespace-pulumi"
-	timeFormat  = "2006-01-02"
+	BackendName         = "gcp-namespace-pulumi"
+	timeFormat          = "2006-01-02"
+	DefaultJupyterImage = "v0.5.1"
 )
 
 var (
@@ -425,11 +427,11 @@ func createPulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 		}
 
 		pachdValues := pulumi.Map{
-			//pachAuthClusterRoleBindings: pulumi.Map{
-			//	# pachAuthClusterRoleBindings: |
-			//#   allUsers:
-			//#   - clusterAdmin
-			//}
+			"pachAuthClusterRoleBindings": pulumi.Map{
+				"pachAuthClusterRoleBindings": pulumi.Map{
+					"allClusterUsers": pulumi.StringArray{pulumi.String("clusterAdmin")},
+				},
+			},
 			"externalService": pulumi.Map{
 				"enabled": pulumi.Bool(true),
 				//						"loadBalancerIP": ipAddress,
@@ -457,6 +459,11 @@ func createPulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 			pachdValues = pulumi.Map{
 				"image": pulumi.Map{
 					"tag": pulumi.String(pachdVersion),
+				},
+				"pachAuthClusterRoleBindings": pulumi.Map{
+					"pachAuthClusterRoleBindings": pulumi.Map{
+						"allClusterUsers": pulumi.StringArray{pulumi.String("clusterAdmin")},
+					},
 				},
 				"externalService": pulumi.Map{
 					"enabled": pulumi.Bool(true),
@@ -545,7 +552,43 @@ func createPulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 			}
 			return []interface{}{svc.Status.LoadBalancer().Ingress().Index(pulumi.Int(0)), svc.Metadata.Name().Elem()}, nil
 		})
-		jupyterImage := "v0.5.1"
+
+		gcpL4LoadBalancerIP := pulumi.All(corePach.Status.Namespace()).ApplyT(func(args []interface{}) (pulumi.StringOutput, error) {
+			//arr := r.([]interface{})
+			namespace := args[0].(*string)
+			svc, err := corev1.GetService(ctx, "svc", pulumi.ID(fmt.Sprintf("%s/pachd-lb", *namespace)), nil, pulumi.Timeouts(&pulumi.CustomTimeouts{Create: "10m"}), pulumi.Provider(k8sProvider))
+			if err != nil {
+				log.Errorf("error getting loadbalancer IP: %v", err)
+			}
+			return svc.Status.LoadBalancer().Ingress().Index(pulumi.Int(0)).Ip().Elem(), nil
+		}).(pulumi.StringOutput)
+
+		urlSuffix := "fancy-elephant.com"
+		managedZone := urlSuffix + "."
+		pachdUrl := pulumi.String(id + "." + urlSuffix)
+
+		//traefikExternalOutput := svcOut.Status.ApplyT(func(status *corev1.ServiceStatus) (string, error) {
+		//	ingress := status.LoadBalancer.Ingress[0]
+		//	if ingress.Ip == nil {
+		//		return "", fmt.Errorf("empty ingress ip")
+		//	}
+		//	return *ingress.Ip, nil
+		//}).(pulumi.StringOutput)
+
+		ctx.Export("pachdlbip", gcpL4LoadBalancerIP)
+
+		_, err = dns.NewRecordSet(ctx, "frontendRecordSet", &dns.RecordSetArgs{
+			Name:        pachdUrl,
+			Type:        pulumi.String("CNAME"),
+			Ttl:         pulumi.Int(300),
+			ManagedZone: pulumi.String(managedZone),
+			Rrdatas:     pulumi.StringArray{gcpL4LoadBalancerIP},
+		})
+		if err != nil {
+			return err
+		}
+
+		jupyterImage := DefaultJupyterImage
 		if notebooksVersion != "" {
 			jupyterImage = notebooksVersion
 		}
