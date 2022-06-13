@@ -100,23 +100,35 @@ func CreatePulumiProgram(id,
 			return err
 		}
 
-		traefikRelease, err := helm.NewRelease(ctx, "traefik", &helm.ReleaseArgs{
+		haProxyRelease, err := helm.NewRelease(ctx, "ha-proxy", &helm.ReleaseArgs{
 			RepositoryOpts: helm.RepositoryOptsArgs{
-				Repo: pulumi.String("https://helm.traefik.io/traefik"),
+				Repo: pulumi.String("https://haproxytech.github.io/helm-charts"),
 			},
-			Chart: pulumi.String("traefik"),
-			//Namespace: namespace.Metadata.Elem().Name(),
+			Chart: pulumi.String("kubernetes-ingress"),
+			Values: pulumi.Map{
+				"controller": pulumi.Map{
+					"ingressClassResource": pulumi.Map{
+						"name": pulumi.String("haproxy"),
+					},
+					"service": pulumi.Map{
+						"type": pulumi.String("LoadBalancer"),
+					},
+				},
+				//				"fullnameOverride": pulumi.String("haproxy-s"),
+			},
+			Namespace: namespace.Metadata.Elem().Name(),
+			Timeout:   pulumi.Int(300),
 		}, pulumi.Provider(k8sProvider))
 
 		if err != nil {
 			return err
 		}
 
-		traefikExternalOutput := pulumi.All(traefikRelease.Status.Name()).ApplyT(func(args []interface{}) (interface{}, error) {
+		haproxyExternalOutput := pulumi.All(namespace.Metadata.Elem().Name(), haProxyRelease.Status.Name()).ApplyT(func(args []interface{}) (interface{}, error) {
 			//arr := r.([]interface{})
-			//	namespace := args[0].(*string)
-			svcName := args[0].(*string)
-			svc, err := corev1.GetService(ctx, "traefik-svc", pulumi.ID(fmt.Sprintf("%s/%s", "default", *svcName)), nil, pulumi.Timeouts(&pulumi.CustomTimeouts{Create: "15m"}), pulumi.Provider(k8sProvider))
+			namespace := args[0].(*string)
+			svcName := args[1].(*string)
+			svc, err := corev1.GetService(ctx, "ha-proxy-svc", pulumi.ID(fmt.Sprintf("%s/%s-kubernetes-ingress", *namespace, *svcName)), nil, pulumi.Timeouts(&pulumi.CustomTimeouts{Create: "15m"}), pulumi.Provider(k8sProvider))
 			if err != nil {
 				log.Errorf("error getting loadbalancer IP: %v", err)
 				return nil, err
@@ -125,6 +137,8 @@ func CreatePulumiProgram(id,
 			return svc.Status.LoadBalancer().Ingress().Index(pulumi.Int(0)).Hostname().Elem(), nil
 		})
 
+		ctx.Export("ha-proxy-name", haproxyExternalOutput)
+
 		// Add trailing . to rrdatas
 		_, err = dns.NewRecordSet(ctx, "traefik-test-ci-record-set", &dns.RecordSetArgs{
 			Name: url + ".",
@@ -132,7 +146,7 @@ func CreatePulumiProgram(id,
 			Type:        pulumi.String("CNAME"),
 			Ttl:         pulumi.Int(300),
 			ManagedZone: testCiManagedZone.Name,
-			Rrdatas:     pulumi.StringArray{pulumi.Sprintf("%s.", traefikExternalOutput)},
+			Rrdatas:     pulumi.StringArray{pulumi.Sprintf("%s.", haproxyExternalOutput)},
 		})
 		if err != nil {
 			return err
@@ -187,7 +201,7 @@ func CreatePulumiProgram(id,
 		// if enterpriseKey == "" {
 		// 	return errors.New("Need to supply env var PACH_ENTERPRISE_TOKEN")
 		// }
-
+		//
 		//urlSuffix := "fancy-elephant.com"
 		//managedZone := urlSuffix + "."
 		//url := pulumi.String(id + "." + urlSuffix)
@@ -209,7 +223,7 @@ func CreatePulumiProgram(id,
 					"enabled": pulumi.Bool(true),
 					"host":    pulumi.String(url),
 					"annotations": pulumi.Map{
-						"kubernetes.io/ingress.class": pulumi.String("traefik"),
+						"kubernetes.io/ingress.class": pulumi.String("haproxy"),
 						//"traefik.ingress.kubernetes.io/router.tls": "true",
 					},
 				},
@@ -267,7 +281,7 @@ func CreatePulumiProgram(id,
 		}).(pulumi.StringOutput)
 
 		_, err = dns.NewRecordSet(ctx, "pachdlb-test-ci-record-set", &dns.RecordSetArgs{
-			Name: url + ".",
+			Name: "pachd-" + url + ".",
 			// TODO: This will be a CNAME for AWS?
 			Type:        pulumi.String("CNAME"),
 			Ttl:         pulumi.Int(300),
@@ -277,50 +291,6 @@ func CreatePulumiProgram(id,
 		if err != nil {
 			return err
 		}
-
-		////
-		////
-		////
-		////
-		///
-
-		//traefikExternalSvc := pulumi.All(corePach.Status.Namespace()).ApplyT(func(r interface{}) (interface{}, error) {
-		//	arr := r.([]interface{})
-		//	namespace := arr[0].(*string)
-		//
-		//	return svc.Status.LoadBalancer().Ingress().Index(pulumi.Int(0)).Ip().Elem(), nil
-		//})
-
-		// svc.Status.LoadBalancer().Ingress().Index(pulumi.Int(0)).Ip().Elem()
-		//serviceName := pulumi.Sprintf("%s/%s", namespace.Metadata.Elem().Name(), traefikRelease.Name)
-		//svc, err := corev1.GetService(ctx, "svc", pulumi.ID(serviceName), nil,
-		//	pulumi.Timeouts(&pulumi.CustomTimeouts{Create: "10m"}),
-		//	pulumi.Provider(k8sProvider))
-		//if err != nil {
-		//	log.Errorf("error getting loadbalancer IP: %v", err)
-		//	return err
-		//}
-
-		//traefikExternalOutput := svcOut.Status.ApplyT(func(status *corev1.ServiceStatus) (string, error) {
-		//	ingress := status.LoadBalancer.Ingress[0]
-		//	if ingress.Ip == nil {
-		//		return "", fmt.Errorf("empty ingress ip")
-		//	}
-		//	return *ingress.Ip, nil
-		//}).(pulumi.StringOutput)
-
-		//	ctx.Export("traefikip", traefikExternalOutput)
-		//
-		//	_, err = dns.NewRecordSet(ctx, "frontendRecordSet", &dns.RecordSetArgs{
-		//		Name:        url,
-		//		Type:        pulumi.String("CNAME"),
-		//		Ttl:         pulumi.Int(300),
-		//		ManagedZone: pulumi.String(managedZone),
-		//		Rrdatas:     pulumi.StringArray{traefikExternalOutput},
-		//	})
-		//	if err != nil {
-		//		return err
-		//	}
 
 		ctx.Export("createdBy", pulumi.String(createdBy))
 		ctx.Export("status", pulumi.String("ready"))
