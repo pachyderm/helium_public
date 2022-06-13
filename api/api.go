@@ -30,7 +30,7 @@ type Spec struct {
 	// TODO: This needs to actually be wired up yet
 	InfraJSON string //schema:"infraJson" This field isn't handled by schema directly
 	// TODO: A bit of a hack
-	InfraJSONContent InfraJson
+	InfraJSONContent *InfraJson
 
 	// This is populated automatically by a header
 	CreatedBy string
@@ -86,32 +86,32 @@ type ConnectionInfo struct {
 }
 
 type InfraJson struct {
-	*K8S `json:"k8s"`
-	*RDS `json:"rds"`
+	*K8S `json:"k8s,omitempty"`
+	*RDS `json:"rds,omitempty"`
 }
 
 type RDS struct {
-	NodeType string `json:"nodeType"`
-	DiskType string `json:"diskType"`
-	DiskSize int    `json:"diskSize"`
-	DiskIOPS int    `json:"diskIOPS"`
+	NodeType string `json:"nodeType,omitempty"`
+	DiskType string `json:"diskType,omitempty"`
+	DiskSize int    `json:"diskSize,omitempty"`
+	DiskIOPS int    `json:"diskIOPS,omitempty"`
 }
 
 type K8S struct {
-	Nodepools []*Nodepool `json:"nodepools"`
+	Nodepools []*Nodepool `json:"nodepools,omitempty"`
 }
 
 type Nodepool struct {
-	NodeType         string `json:"nodeType"`
-	NodeNumInstances int    `json:"nodeNumInstances"`
-	NodeDiskType     string `json:"nodeDiskType"`
-	NodeDiskSize     int    `json:"nodeDiskSize"`
-	NodeDiskIOPS     int    `json:"nodeDiskIOPS"`
+	NodeType         string `json:"nodeType,omitempty"`
+	NodeNumInstances int    `json:"nodeNumInstances,omitempty"`
+	NodeDiskType     string `json:"nodeDiskType,omitempty"`
+	NodeDiskSize     int    `json:"nodeDiskSize,omitempty"`
+	NodeDiskIOPS     int    `json:"nodeDiskIOPS,omitempty"`
 }
 
 // Populates default values
-func NewInfraJson() InfraJson {
-	return InfraJson{
+func NewInfraJson() *InfraJson {
+	return &InfraJson{
 		K8S: &K8S{
 			Nodepools: []*Nodepool{
 				&Nodepool{

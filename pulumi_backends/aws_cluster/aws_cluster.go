@@ -68,8 +68,7 @@ func CreatePulumiProgram(id,
 		}
 
 		if infraJson == nil {
-			i := api.NewInfraJson()
-			infraJson = &i
+			infraJson = api.NewInfraJson()
 		}
 
 		cluster, err := eks.NewCluster(ctx, id, &eks.ClusterArgs{

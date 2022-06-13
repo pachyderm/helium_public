@@ -276,12 +276,12 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 	case "gcp_namespace":
 		// TODO: remove debugging function in followup PR
 		log.Debug("pulumi backend gcp namespace explitly specified")
-		program = gcp_namespace.CreatePulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML, req.CreatedBy, cleanup, &req.InfraJSONContent)
+		program = gcp_namespace.CreatePulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML, req.CreatedBy, cleanup, req.InfraJSONContent)
 	case "aws_cluster":
-		program = aws_cluster.CreatePulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML, req.CreatedBy, cleanup, &req.InfraJSONContent)
+		program = aws_cluster.CreatePulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML, req.CreatedBy, cleanup, req.InfraJSONContent)
 		//
 	default:
-		program = gcp_namespace.CreatePulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML, req.CreatedBy, cleanup, &req.InfraJSONContent)
+		program = gcp_namespace.CreatePulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML, req.CreatedBy, cleanup, req.InfraJSONContent)
 	}
 	s, err := auto.SelectStackInlineSource(ctx, stackName, project, program)
 	if err != nil {
