@@ -70,9 +70,8 @@ ARG AWS_SECRET
 COPY --from=build /app/out /out
 COPY --from=build /app/root.py /root.py
 COPY --from=build /app/templates /templates
-
-# TODO: remove this
-COPY --from=build /app/key.json /var/secrets/google/key.json
+# uncomment this for local dev
+# COPY --from=build /app/key.json /var/secrets/google/key.json
 
 ENV PATH $PATH:/usr/local/gcloud/google-cloud-sdk/bin
 ENV PATH "${HOME}/pulumi:$PATH"
