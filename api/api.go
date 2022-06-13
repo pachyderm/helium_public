@@ -86,8 +86,8 @@ type ConnectionInfo struct {
 }
 
 type InfraJson struct {
-	K8S `json:"k8s"`
-	RDS `json:"rds"`
+	*K8S `json:"k8s"`
+	*RDS `json:"rds"`
 }
 
 type RDS struct {
@@ -98,7 +98,7 @@ type RDS struct {
 }
 
 type K8S struct {
-	Nodepools []Nodepool `json:"nodepools"`
+	Nodepools []*Nodepool `json:"nodepools"`
 }
 
 type Nodepool struct {
@@ -108,3 +108,68 @@ type Nodepool struct {
 	NodeDiskSize     int    `json:"nodeDiskSize"`
 	NodeDiskIOPS     int    `json:"nodeDiskIOPS"`
 }
+
+// Populates default values
+func NewInfraJson() InfraJson {
+	return InfraJson{
+		K8S: &K8S{
+			Nodepools: []*Nodepool{
+				&Nodepool{
+					NodeType:         "m5.2xlarge",
+					NodeNumInstances: 2,
+					NodeDiskType:     "gp3",
+					NodeDiskSize:     100,
+					NodeDiskIOPS:     10000,
+				},
+			},
+		},
+		RDS: &RDS{
+			NodeType: "db.m6g.2xlarge",
+			DiskType: "gp2",
+			DiskSize: 100,
+			DiskIOPS: 10000,
+		},
+	}
+}
+
+//{
+//    "k8s": {
+//        "nodepools": [
+//            {
+//                "nodeType": "m5.2xlarge",
+//                "nodeNumInstances": 2,
+//                "nodeDiskType": "gp3",
+//                "nodeDiskSize": 100,
+//                "nodeDiskIOPS": 10000
+//            }
+//        ]
+//    },
+//    "rds": {
+//        "nodeType": "db.m6g.2xlarge",
+//        "diskType": "gp2",
+//        "diskSize": 100,
+//        "diskIOPS": 10000
+//    }
+//}
+//
+//infraJson := `
+//{
+//"k8s": {
+//	"nodepools": [
+//	{
+//		"nodeType": "m1",
+//		"nodeNumInstances": 2,
+//		"nodeDiskType": "gp2",
+//		"nodeDiskSize": 100,
+//		"nodeDiskIOPS": 10000
+//	}
+//]
+//},
+//"rds": {
+//		"nodeType": "m1",
+//		"diskType": "gp2",
+//		"diskSize": 100,
+//		"diskIOPS": 10000
+//	}
+//}`
+//

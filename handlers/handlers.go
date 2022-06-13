@@ -199,7 +199,7 @@ func AsyncCreationRequest(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		var infra api.InfraJson
+		infra := api.NewInfraJson()
 		err := json.Unmarshal([]byte(contentInfra), &infra)
 		if err != nil {
 			w.WriteHeader(500)
@@ -427,7 +427,7 @@ func UICreation(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		var infra api.InfraJson
+		infra := api.NewInfraJson()
 		err := json.Unmarshal([]byte(contentInfra), &infra)
 		if err != nil {
 			w.WriteHeader(500)
