@@ -67,6 +67,11 @@ func CreatePulumiProgram(id,
 			return err
 		}
 
+		if infraJson == nil {
+			i := api.NewInfraJson()
+			infraJson = &i
+		}
+
 		cluster, err := eks.NewCluster(ctx, id, &eks.ClusterArgs{
 			InstanceType:    pulumi.String(infraJson.K8S.Nodepools[0].NodeType),
 			DesiredCapacity: pulumi.Int(infraJson.K8S.Nodepools[0].NodeNumInstances),
