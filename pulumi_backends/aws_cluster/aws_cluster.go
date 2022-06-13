@@ -299,7 +299,6 @@ func CreatePulumiProgram(id,
 		ctx.Export("createdBy", pulumi.String(createdBy))
 		ctx.Export("status", pulumi.String("ready"))
 		ctx.Export("pachdip", loadBalancerIP)
-		ctx.Export("juypterUrl", pulumi.String("comming soon.."))
 		ctx.Export("consoleUrl", pulumi.String(url))
 		ctx.Export("k8sNamespace", namespace.Metadata.Elem().Name())
 		ctx.Export("bucket", bucket.Bucket)
