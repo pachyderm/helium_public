@@ -71,12 +71,17 @@ func CreatePulumiProgram(id,
 			infraJson = api.NewInfraJson()
 		}
 
-		cluster, err := eks.NewCluster(ctx, id, &eks.ClusterArgs{
-			InstanceType:    pulumi.String(infraJson.K8S.Nodepools[0].NodeType),
-			DesiredCapacity: pulumi.Int(infraJson.K8S.Nodepools[0].NodeNumInstances),
-			MinSize:         pulumi.Int(0),
-			MaxSize:         pulumi.Int(infraJson.K8S.Nodepools[0].NodeNumInstances),
-		})
+		clusterArgs := &eks.ClusterArgs{
+			InstanceType:       pulumi.String(infraJson.K8S.Nodepools[0].NodeType),
+			DesiredCapacity:    pulumi.Int(infraJson.K8S.Nodepools[0].NodeNumInstances),
+			MinSize:            pulumi.Int(0),
+			MaxSize:            pulumi.Int(infraJson.K8S.Nodepools[0].NodeNumInstances),
+			NodeRootVolumeType: pulumi.String(infraJson.K8S.Nodepools[0].NodeDiskType),
+			NodeRootVolumeIops: pulumi.Int(infraJson.K8S.Nodepools[0].NodeDiskIOPS),
+		}
+
+		cluster, err := eks.NewCluster(ctx, id, clusterArgs)
+
 		if err != nil {
 			return err
 		}
@@ -304,7 +309,7 @@ func CreatePulumiProgram(id,
 		ctx.Export("bucket", bucket.Bucket)
 		ctx.Export("helium-expiry", pulumi.String(expiry))
 		//cluster.EksCluster.Name()
-		ctx.Export("k8sConnection", pulumi.String(fmt.Sprintf("aws eks --region us-west-2 update-kubeconfig --name %s", "hi")))
+		ctx.Export("k8sConnection", pulumi.Sprintf("aws eks --region us-west-2 update-kubeconfig --name %s", cluster.EksCluster.Name()))
 		ctx.Export("backend", pulumi.String(BackendName))
 		ctx.Export("pachd-lb-ip", loadBalancerIP)
 		ctx.Export("pachd-lb-url", url)
