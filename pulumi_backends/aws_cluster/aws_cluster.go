@@ -169,6 +169,7 @@ func CreatePulumiProgram(id,
 			Password:           pulumi.String("correcthorsebatterystaple"),
 			SkipFinalSnapshot:  pulumi.Bool(true),
 			StorageType:        pulumi.String(infraJson.RDS.DiskType),
+			Iops:               pulumi.Int(infraJson.RDS.DiskIOPS),
 			Username:           pulumi.String("postgres"),
 			PubliclyAccessible: pulumi.Bool(true),
 		})
