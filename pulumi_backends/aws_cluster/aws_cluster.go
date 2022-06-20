@@ -161,7 +161,7 @@ func CreatePulumiProgram(id,
 			return err
 		}
 
-		r, err := rds.NewInstance(ctx, "helium-postgresql", &rds.InstanceArgs{
+		rdsInstanceArgs := &rds.InstanceArgs{
 			AllocatedStorage:   pulumi.Int(infraJson.RDS.DiskSize),
 			Engine:             pulumi.String("postgres"),
 			InstanceClass:      pulumi.String(infraJson.RDS.NodeType),
@@ -169,10 +169,15 @@ func CreatePulumiProgram(id,
 			Password:           pulumi.String("correcthorsebatterystaple"),
 			SkipFinalSnapshot:  pulumi.Bool(true),
 			StorageType:        pulumi.String(infraJson.RDS.DiskType),
-			Iops:               pulumi.Int(infraJson.RDS.DiskIOPS),
 			Username:           pulumi.String("postgres"),
 			PubliclyAccessible: pulumi.Bool(true),
-		})
+		}
+
+		if infraJson.RDS.DiskType == "io1" {
+			rdsInstanceArgs.Iops = pulumi.Int(infraJson.RDS.DiskIOPS)
+		}
+
+		r, err := rds.NewInstance(ctx, "helium-postgresql", rdsInstanceArgs)
 
 		if err != nil {
 			return err
