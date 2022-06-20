@@ -114,6 +114,36 @@ func TestE2E(t *testing.T) {
 	}
 }
 
+func TestParseInfraJSON(t *testing.T) {
+	infraJson := `
+{
+	"k8s": {
+		"nodepools": [
+		{
+			"nodeType": "m1",
+			"nodeNumInstances": 2,
+			"nodeDiskType": "gp2",
+			"nodeDiskSize": 100,
+			"nodeDiskIOPS": 10000
+		}
+	]
+},
+	"rds": {
+			"nodeType": "m1",
+			"diskType": "gp2",
+			"diskSize": 100,
+			"diskIOPS": 10000
+		}
+}`
+
+	var infra api.InfraJson
+	err := json.Unmarshal([]byte(infraJson), &infra)
+	if err != nil {
+		t.Errorf("couldn't unmarshal: %v", err)
+	}
+	t.Logf("Infra: %#v", infra)
+}
+
 func executeRequest(req *http.Request) *httptest.ResponseRecorder {
 	rr := httptest.NewRecorder()
 	a.Initialize()

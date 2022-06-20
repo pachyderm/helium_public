@@ -144,7 +144,7 @@ Another resource would be the slack channel `#helium-sentry` as that'd show you 
 
 Pulumi is managing a shared GKE cluster in the pulumi-ci GCP project. That GKE cluster is currently allowed to auto provision up to 50 CPU and 200GB Memory, and 4x of every currently support GPU on GCP. It's defined here: `https://github.com/pachyderm/infrastructure/tree/master/ci`, notably we're installing the GPU daemonset for autoprovisioning.
 
-We're using the pulumi SaaS platform to manage state and concurrency control on any given stack, for the default gcp_namespace_pulumi backend.
+We're using the pulumi SaaS platform to manage state and concurrency control on any given stack, for the default pulumi_backends/gcp_namespace backend.
 
 Sentry is setup to collect errors and message to the #helium-slack channel.
 
@@ -163,7 +163,7 @@ HELIUM_MODE=API HELIUM_CLIENT_SECRET="XXXXXXXXXXXX" HELIUM_CLIENT_ID="XXXXXXXXXX
 
 TODO: Document adding an additional backend.
 
-gcp_namespace_pulumi - Most of the heavy lifting is done in this code here, as it's the actual pulumi backend we're leveraging for our state.
+pulumi_backends - Most of the heavy lifting is done in this code here, as it's the actual pulumi backend we're leveraging for our state.
 
 UI is provided by the templates in the /templates directory. They were heavily inspired by the Enterprise Keygen templates, with the additional of Tailwind CSS. Normal go templating is used to process the templates, the relevant handlers are prefixed with UI.
 

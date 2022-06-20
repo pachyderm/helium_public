@@ -7,9 +7,9 @@ require (
 	github.com/google/go-cmp v0.5.7
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/schema v1.2.0
-	github.com/pulumi/pulumi-gcp/sdk/v6 v6.23.0
+	github.com/pulumi/pulumi-gcp/sdk/v6 v6.26.0
 	github.com/pulumi/pulumi-kubernetes/sdk/v3 v3.18.2
-	github.com/pulumi/pulumi/sdk/v3 v3.32.1
+	github.com/pulumi/pulumi/sdk/v3 v3.33.2
 	github.com/sirupsen/logrus v1.8.1
 )
 
@@ -37,10 +37,14 @@ require (
 	github.com/opentracing/opentracing-go v1.1.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pkg/term v1.1.0 // indirect
+	github.com/pulumi/pulumi-aws/sdk/v5 v5.7.0
+	github.com/pulumi/pulumi-eks/sdk v0.40.0
+	github.com/pulumi/pulumi-postgresql/sdk/v3 v3.4.0
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/rogpeppe/go-internal v1.8.1 // indirect
 	github.com/sabhiram/go-gitignore v0.0.0-20180611051255-d3107576ba94 // indirect
 	github.com/sergi/go-diff v1.1.0 // indirect
+	github.com/spf13/cast v1.3.1 // indirect
 	github.com/spf13/cobra v1.4.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/src-d/gcfg v1.4.0 // indirect

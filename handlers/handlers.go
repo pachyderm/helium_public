@@ -17,8 +17,9 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gorilla/schema"
 	"github.com/pachyderm/helium/api"
-	"github.com/pachyderm/helium/gcp_namespace_pulumi"
+	"github.com/pachyderm/helium/pulumi_backends"
 	"github.com/pachyderm/helium/util"
+
 	log "github.com/sirupsen/logrus"
 )
 
@@ -75,7 +76,7 @@ func HealthCheck(w http.ResponseWriter, r *http.Request) {
 }
 
 func ListRequest(w http.ResponseWriter, r *http.Request) {
-	gnp := &gcp_namespace_pulumi.Runner{}
+	gnp := &pulumi_backends.Runner{}
 	w.Header().Set("Content-Type", "application/json")
 	var res *api.ListResponse
 	res, err := gnp.List()
@@ -89,7 +90,7 @@ func ListRequest(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetConnInfoRequest(w http.ResponseWriter, r *http.Request) {
-	gnp := &gcp_namespace_pulumi.Runner{}
+	gnp := &pulumi_backends.Runner{}
 	w.Header().Set("Content-Type", "application/json")
 	vars := mux.Vars(r)
 	id := api.ID(vars["workspaceId"])
@@ -106,7 +107,7 @@ func GetConnInfoRequest(w http.ResponseWriter, r *http.Request) {
 }
 
 func AsyncCreationRequest(w http.ResponseWriter, r *http.Request) {
-	gnp := &gcp_namespace_pulumi.Runner{}
+	gnp := &pulumi_backends.Runner{}
 
 	log.SetReportCaller(true)
 	log.SetLevel(log.DebugLevel)
@@ -132,18 +133,6 @@ func AsyncCreationRequest(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, "failed to upload file: %v", err)
 			log.Errorf("Error reading FormFile: %v", err)
 		}
-	}
-
-	spec.CreatedBy = r.Header.Get(USER_HEADER)
-
-	if spec.Name == "" {
-		spec.Name = util.Name()
-	}
-	if badChar := validNameCharacters.FindString(spec.Name); badChar == "" {
-		w.WriteHeader(500)
-		fmt.Fprintf(w, html.EscapeString("contains invalid character or is too long, must fit this regex ^[a-z0-9]([-a-z0-9]{1,61}[a-z0-9]{1})$"))
-		log.Errorf("invalid name: %v", spec.Name)
-		return
 	}
 
 	var content []byte
@@ -174,6 +163,66 @@ func AsyncCreationRequest(w http.ResponseWriter, r *http.Request) {
 		spec.ValuesYAML = f.Name()
 	}
 
+	fileInfra, _, err := r.FormFile("infraJson")
+	if err != nil {
+		if strings.Contains(err.Error(), "no such file") {
+			log.Debug("no file param")
+		} else {
+			w.WriteHeader(500)
+			fmt.Fprintf(w, "failed to upload file: %v", err)
+			log.Errorf("Error reading FormFile: %v", err)
+		}
+	}
+
+	var contentInfra []byte
+	var fInfra *os.File
+	if fileInfra != nil {
+		fInfra, err = os.CreateTemp("", "temp-values")
+		if err != nil {
+			w.WriteHeader(500)
+			fmt.Fprintf(w, "failed to upload file: %v", err)
+			log.Errorf("error creating temp file: %v", err)
+			return
+		}
+		_, err = io.Copy(fInfra, fileInfra)
+		if err != nil {
+			w.WriteHeader(500)
+			fmt.Fprintf(w, "failed to upload file: %v", err)
+			log.Errorf("error copying file: %v", err)
+			return
+		}
+		contentInfra, err = ioutil.ReadFile(fInfra.Name())
+		if err != nil {
+			w.WriteHeader(500)
+			fmt.Fprintf(w, "failed to upload file: %v", err)
+			log.Errorf("error copying file: %v", err)
+			return
+		}
+
+		infra := api.NewInfraJson()
+		err := json.Unmarshal([]byte(contentInfra), &infra)
+		if err != nil {
+			w.WriteHeader(500)
+			fmt.Fprintf(w, "failed to unmarshall infraJson: %v", err)
+			log.Errorf("failed to unmarshall infraJson: %v", err)
+			return
+		}
+		spec.InfraJSON = fInfra.Name()
+		spec.InfraJSONContent = infra
+	}
+
+	spec.CreatedBy = r.Header.Get(USER_HEADER)
+
+	if spec.Name == "" {
+		spec.Name = util.Name()
+	}
+	if badChar := validNameCharacters.FindString(spec.Name); badChar == "" {
+		w.WriteHeader(500)
+		fmt.Fprintf(w, html.EscapeString("contains invalid character or is too long, must fit this regex ^[a-z0-9]([-a-z0-9]{1,61}[a-z0-9]{1})$"))
+		log.Errorf("invalid name: %v", spec.Name)
+		return
+	}
+
 	log.WithFields(log.Fields{
 		"canonical":         "true",
 		"request":           "create-api",
@@ -187,10 +236,13 @@ func AsyncCreationRequest(w http.ResponseWriter, r *http.Request) {
 		"cleanupOnFail":     spec.CleanupOnFail,
 		"valuesYAML":        spec.ValuesYAML,
 		"valuesYAMLContent": content,
+		"infraJSON":         spec.ValuesYAML,
+		"infraJSONContent":  contentInfra,
+		"backend":           spec.Backend,
 	}).Infof("create parameters")
 
 	// TODO: This is a bit of a hack
-	go func(spec api.Spec, f *os.File) {
+	go func(spec api.Spec, f *os.File, fInfra *os.File) {
 		_, err = gnp.Create(&spec)
 		if err != nil {
 			log.Errorf("create handler: %v", err)
@@ -200,11 +252,15 @@ func AsyncCreationRequest(w http.ResponseWriter, r *http.Request) {
 			defer os.Remove(f.Name())
 			defer f.Close()
 		}
-	}(spec, f)
+		if fInfra != nil {
+			defer os.Remove(fInfra.Name())
+			defer fInfra.Close()
+		}
+	}(spec, f, fInfra)
 }
 
 func IsExpiredRequest(w http.ResponseWriter, r *http.Request) {
-	gnp := &gcp_namespace_pulumi.Runner{}
+	gnp := &pulumi_backends.Runner{}
 	w.Header().Set("Content-Type", "application/json")
 	vars := mux.Vars(r)
 	id := api.ID(vars["workspaceId"])
@@ -222,7 +278,7 @@ func IsExpiredRequest(w http.ResponseWriter, r *http.Request) {
 
 // TODO: pick delete or destroy, not both
 func DeleteRequest(w http.ResponseWriter, r *http.Request) {
-	gnp := &gcp_namespace_pulumi.Runner{}
+	gnp := &pulumi_backends.Runner{}
 	w.Header().Set("Content-Type", "application/json")
 	vars := mux.Vars(r)
 	id := api.ID(vars["workspaceId"])
@@ -238,7 +294,7 @@ func DeleteRequest(w http.ResponseWriter, r *http.Request) {
 }
 
 func UIListWorkspace(w http.ResponseWriter, r *http.Request) {
-	gnp := &gcp_namespace_pulumi.Runner{}
+	gnp := &pulumi_backends.Runner{}
 	var res *api.ListResponse
 	res, err := gnp.List()
 	if err != nil {
@@ -262,7 +318,7 @@ func UIRootHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func UIGetWorkspace(w http.ResponseWriter, r *http.Request) {
-	gnp := &gcp_namespace_pulumi.Runner{}
+	gnp := &pulumi_backends.Runner{}
 	vars := mux.Vars(r)
 	id := api.ID(vars["workspaceId"])
 	var res *api.GetConnectionInfoResponse
@@ -281,7 +337,7 @@ func UIGetWorkspace(w http.ResponseWriter, r *http.Request) {
 }
 
 func UICreation(w http.ResponseWriter, r *http.Request) {
-	gnp := &gcp_namespace_pulumi.Runner{}
+	gnp := &pulumi_backends.Runner{}
 
 	log.SetReportCaller(true)
 	log.SetLevel(log.DebugLevel)
@@ -308,16 +364,16 @@ func UICreation(w http.ResponseWriter, r *http.Request) {
 			log.Errorf("Error reading FormFile: %v", err)
 		}
 	}
-	spec.CreatedBy = r.Header.Get(USER_HEADER)
 
-	if spec.Name == "" {
-		spec.Name = util.Name()
-	}
-	if badChar := validNameCharacters.FindString(spec.Name); badChar == "" {
-		w.WriteHeader(500)
-		fmt.Fprintf(w, html.EscapeString("contains invalid character or is too long, must fit this regex ^[a-z0-9]([-a-z0-9]{1,61}[a-z0-9]{1})$"))
-		log.Errorf("invalid name: %v", spec.Name)
-		return
+	fileInfra, _, err := r.FormFile("infraJson")
+	if err != nil {
+		if strings.Contains(err.Error(), "no such file") {
+			log.Debug("no file param")
+		} else {
+			w.WriteHeader(500)
+			fmt.Fprintf(w, "failed to upload file: %v", err)
+			log.Errorf("Error reading FormFile: %v", err)
+		}
 	}
 	var content []byte
 	var f *os.File
@@ -345,6 +401,55 @@ func UICreation(w http.ResponseWriter, r *http.Request) {
 		}
 		spec.ValuesYAML = f.Name()
 	}
+
+	var contentInfra []byte
+	var fInfra *os.File
+	if fileInfra != nil {
+		fInfra, err = os.CreateTemp("", "temp-values")
+		if err != nil {
+			w.WriteHeader(500)
+			fmt.Fprintf(w, "failed to upload file: %v", err)
+			log.Errorf("error creating temp file: %v", err)
+			return
+		}
+		_, err = io.Copy(fInfra, fileInfra)
+		if err != nil {
+			w.WriteHeader(500)
+			fmt.Fprintf(w, "failed to upload file: %v", err)
+			log.Errorf("error copying file: %v", err)
+			return
+		}
+		contentInfra, err = ioutil.ReadFile(fInfra.Name())
+		if err != nil {
+			w.WriteHeader(500)
+			fmt.Fprintf(w, "failed to upload file: %v", err)
+			log.Errorf("error copying file: %v", err)
+			return
+		}
+
+		infra := api.NewInfraJson()
+		err := json.Unmarshal([]byte(contentInfra), &infra)
+		if err != nil {
+			w.WriteHeader(500)
+			fmt.Fprintf(w, "failed to unmarshall infraJson: %v", err)
+			log.Errorf("failed to unmarshall infraJson: %v", err)
+			return
+		}
+		spec.InfraJSON = fInfra.Name()
+		spec.InfraJSONContent = infra
+	}
+	spec.CreatedBy = r.Header.Get(USER_HEADER)
+
+	if spec.Name == "" {
+		spec.Name = util.Name()
+	}
+	if badChar := validNameCharacters.FindString(spec.Name); badChar == "" {
+		w.WriteHeader(500)
+		fmt.Fprintf(w, html.EscapeString("contains invalid character or is too long, must fit this regex ^[a-z0-9]([-a-z0-9]{1,61}[a-z0-9]{1})$"))
+		log.Errorf("invalid name: %v", spec.Name)
+		return
+	}
+
 	log.WithFields(log.Fields{
 		"canonical":         "true",
 		"request":           "create-ui",
@@ -358,10 +463,13 @@ func UICreation(w http.ResponseWriter, r *http.Request) {
 		"cleanupOnFail":     spec.CleanupOnFail,
 		"valuesYAML":        spec.ValuesYAML,
 		"valuesYAMLContent": content,
+		"infraJSON":         spec.ValuesYAML,
+		"infraJSONContent":  contentInfra,
+		"backend":           spec.Backend,
 	}).Infof("create parameters")
 
 	// TODO: This is a bit of a hack
-	go func(spec api.Spec, f *os.File) {
+	go func(spec api.Spec, f *os.File, fInfra *os.File) {
 		_, err = gnp.Create(&spec)
 		if err != nil {
 			log.Errorf("create handler: %v", err)
@@ -371,7 +479,11 @@ func UICreation(w http.ResponseWriter, r *http.Request) {
 			defer os.Remove(f.Name())
 			defer f.Close()
 		}
-	}(spec, f)
+		if fInfra != nil {
+			defer os.Remove(fInfra.Name())
+			defer fInfra.Close()
+		}
+	}(spec, f, fInfra)
 	// Set the first requests data to creating, because a list lookup will race condition and fail.
 	// Meta refresh on template of ~10 seconds is plenty of time to make next list condition work.
 	res2 := &api.ConnectionInfo{

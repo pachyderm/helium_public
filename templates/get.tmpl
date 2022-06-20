@@ -83,6 +83,7 @@
        >
        <a href={{.ConsoleURL}} target="_blank">Console</a>
        </button>
+       {{ if .NotebooksURL }}
        <li>
          <li class="py-2 px-2 border border-gray-200 w-full">
            <button
@@ -104,8 +105,9 @@
          <a href={{.NotebooksURL}} target="_blank">Notebooks</a>
          </button>
          <li>
+        {{end}}
         <li class="text-2xl text-center px-6 py-6 border-b border-gray-200 w-full">Kubernetes Namespace: {{.K8sNamespace}}</li>
-        <li class="text-2xl text-center px-6 py-6 border-b border-gray-200 w-full">Google Cloud Storage Bucket: {{.GCSBucket}}</li>
+        <li class="text-2xl text-center px-6 py-6 border-b border-gray-200 w-full">Storage Bucket: {{.GCSBucket}}</li>
         <li class="text-xl text-center px-6 py-6 border-b border-gray-200 w-full">Pachctl Connection Info: <code class="text-xl bg-gray-200">{{.Pachctl}}</code></li>
         {{end}}
        {{if .K8s}}
@@ -113,6 +115,9 @@
        {{end}}
        {{if .CreatedBy}}
        <li class="text-2xl text-center px-6 py-6 border-b border-gray-200 w-full">Created By: {{.CreatedBy}}</li>
+       {{end}}
+       {{if .Backend}}
+       <li class="text-2xl text-center px-6 py-6 border-b border-gray-200 w-full">Backend: {{.Backend}}</li>
        {{end}}
        </ul>
      </div>
