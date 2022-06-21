@@ -11,11 +11,13 @@ require (
 	github.com/pulumi/pulumi-kubernetes/sdk/v3 v3.18.2
 	github.com/pulumi/pulumi/sdk/v3 v3.33.2
 	github.com/sirupsen/logrus v1.8.1
+	github.com/stretchr/testify v1.7.0
 )
 
 require (
 	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/cheggaaa/pb v1.0.18 // indirect
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/djherbis/times v1.2.0 // indirect
 	github.com/emirpasic/gods v1.12.0 // indirect
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
@@ -40,6 +42,7 @@ require (
 	github.com/pulumi/pulumi-aws/sdk/v5 v5.7.0
 	github.com/pulumi/pulumi-eks/sdk v0.40.0
 	github.com/pulumi/pulumi-postgresql/sdk/v3 v3.4.0
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/rogpeppe/go-internal v1.8.1 // indirect
 	github.com/sabhiram/go-gitignore v0.0.0-20180611051255-d3107576ba94 // indirect
@@ -70,5 +73,6 @@ require (
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
+	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c // indirect
 	sourcegraph.com/sourcegraph/appdash v0.0.0-20190731080439-ebfcffb1b5c0 // indirect
 )

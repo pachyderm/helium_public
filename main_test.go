@@ -8,8 +8,11 @@ import (
 	"net/http/httptest"
 	"testing"
 	"time"
+	"regexp"
 
 	"github.com/pachyderm/helium/api"
+	"github.com/pachyderm/helium/util"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestA(t *testing.T) {
@@ -142,6 +145,13 @@ func TestParseInfraJSON(t *testing.T) {
 		t.Errorf("couldn't unmarshal: %v", err)
 	}
 	t.Logf("Infra: %#v", infra)
+}
+
+func TestUtilName(t *testing.T) {
+	log.Println("TestUtilName running")
+	actual := util.Name()
+	expected := regexp.MustCompile(`^[a-z0-9]([-a-z0-9]{1,61}[a-z0-9]{1})$`)
+	assert.Regexp(t,expected,actual)
 }
 
 func executeRequest(req *http.Request) *httptest.ResponseRecorder {
