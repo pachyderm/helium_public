@@ -72,7 +72,7 @@ COPY --from=build /app/root.py /root.py
 COPY --from=build /app/workspace-wildcard.yaml /workspace-wildcard.yaml
 COPY --from=build /app/templates /templates
 # uncomment this for local dev
-COPY --from=build /app/key.json /var/secrets/google/key.json
+# COPY --from=build /app/key.json /var/secrets/google/key.json
 
 ENV PATH $PATH:/usr/local/gcloud/google-cloud-sdk/bin
 ENV PATH "${HOME}/pulumi:$PATH"
