@@ -17,6 +17,7 @@ import (
 	"github.com/pachyderm/helium/api"
 	"github.com/pachyderm/helium/backend"
 	"github.com/pachyderm/helium/pulumi_backends/aws_cluster"
+	"github.com/pachyderm/helium/pulumi_backends/gcp_cluster"
 	"github.com/pachyderm/helium/pulumi_backends/gcp_namespace"
 	"github.com/pachyderm/helium/util"
 
@@ -271,12 +272,17 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 
 	backend := strings.ToLower(req.Backend)
 	var program pulumi.RunFunc
+	gcpProjectID := "***REMOVED***"
 	switch backend {
 	// This could just be moved to default, but wanted to be explicit
 	case "gcp_namespace":
 		// TODO: remove debugging function in followup PR
 		log.Debug("pulumi backend gcp namespace explitly specified")
 		program = gcp_namespace.CreatePulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML, req.CreatedBy, cleanup, req.InfraJSONContent)
+	case "gcp_cluster":
+		// TODO: remove debugging function in followup PR
+		//	gcpProjectID =
+		program = gcp_cluster.CreatePulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML, req.CreatedBy, cleanup, req.InfraJSONContent)
 	case "aws_cluster":
 		program = aws_cluster.CreatePulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML, req.CreatedBy, cleanup, req.InfraJSONContent)
 		//
@@ -294,7 +300,9 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 			return nil, err
 		}
 	}
-	s.SetConfig(ctx, "gcp:project", auto.ConfigValue{Value: "***REMOVED***"})
+	// TODO: copy wildcard into dockerfile
+	// TODO: should be able to switch gcp project to
+	s.SetConfig(ctx, "gcp:project", auto.ConfigValue{Value: gcpProjectID})
 	s.SetConfig(ctx, "gcp:zone", auto.ConfigValue{Value: "us-east1-b"})
 
 	// deploy the stack

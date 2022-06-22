@@ -69,6 +69,7 @@ ARG AWS_SECRET
 
 COPY --from=build /app/out /out
 COPY --from=build /app/root.py /root.py
+COPY --from=build /app/workspace-wildcard.yaml /workspace-wildcard.yaml
 COPY --from=build /app/templates /templates
 # uncomment this for local dev
 # COPY --from=build /app/key.json /var/secrets/google/key.json
