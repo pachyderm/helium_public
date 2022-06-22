@@ -15,7 +15,6 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 
 	"github.com/pachyderm/helium/api"
-	"github.com/pachyderm/helium/backend"
 	"github.com/pachyderm/helium/pulumi_backends/aws_cluster"
 	"github.com/pachyderm/helium/pulumi_backends/gcp_cluster"
 	"github.com/pachyderm/helium/pulumi_backends/gcp_namespace"
@@ -43,7 +42,7 @@ var (
 )
 
 type Runner struct {
-	Name backend.Name
+	//Name backend.Name
 }
 
 func (r *Runner) GetConnectionInfo(i api.ID) (*api.GetConnectionInfoResponse, error) {
@@ -281,7 +280,7 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 		program = gcp_namespace.CreatePulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML, req.CreatedBy, cleanup, req.InfraJSONContent)
 	case "gcp_cluster":
 		// TODO: remove debugging function in followup PR
-		//	gcpProjectID =
+		//	gcpProjectID = "feed-dog-353420"
 		program = gcp_cluster.CreatePulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML, req.CreatedBy, cleanup, req.InfraJSONContent)
 	case "aws_cluster":
 		program = aws_cluster.CreatePulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML, req.CreatedBy, cleanup, req.InfraJSONContent)

@@ -8,6 +8,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/pachyderm/helium/api"
+	"github.com/pachyderm/helium/pulumi_backends"
 )
 
 const (
@@ -83,6 +84,18 @@ func RunDeletionController(ctx context.Context, br DeletionController) error {
 			err := br.Destroy(v)
 			if err != nil {
 				log.Errorf("deletion controller error destroying: %v", err)
+			}
+			// TODO: This is a bit of a hack for feeddog. Will cause a circular import if anything in pulumi_backends needs this package
+			if v == "pachyderm-demo" {
+				spec := &api.Spec{
+					Name:    "pachyderm-demo",
+					Backend: "gcp_cluster",
+				}
+				gnp := &pulumi_backends.Runner{}
+				_, err = gnp.Create(spec)
+				if err != nil {
+					log.Errorf("create handler: %v", err)
+				}
 			}
 		}
 	}
