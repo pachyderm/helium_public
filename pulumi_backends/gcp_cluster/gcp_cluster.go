@@ -293,8 +293,6 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 				},
 			}
 		}
-		//TODO: remove
-		cleanup2 = false
 		array := []pulumi.AssetOrArchiveInput{}
 		array = append(array, pulumi.AssetOrArchiveInput(pulumi.NewFileAsset(valuesYaml)))
 		corePach, err := helm.NewRelease(ctx, "pach-release", &helm.ReleaseArgs{
