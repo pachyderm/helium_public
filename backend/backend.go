@@ -86,7 +86,7 @@ func RunDeletionController(ctx context.Context, br DeletionController) error {
 				log.Errorf("deletion controller error destroying: %v", err)
 			}
 			// TODO: This is a bit of a hack for feeddog. Will cause a circular import if anything in pulumi_backends needs this package
-			if v == "pachyderm-demo" {
+			if v == "public-sandbox" {
 				spec := &api.Spec{
 					Name:    "pachyderm-demo",
 					Backend: "gcp_cluster",
