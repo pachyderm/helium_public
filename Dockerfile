@@ -43,7 +43,7 @@ RUN curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s
   chmod +x kubectl && \
   mv kubectl /usr/local/bin
 
-FROM golang:1.17 AS build
+FROM golang:1.18 AS build
 
 WORKDIR /app
 
