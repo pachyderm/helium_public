@@ -1,6 +1,6 @@
 module github.com/pachyderm/helium
 
-go 1.17
+go 1.18
 
 require (
 	github.com/getsentry/sentry-go v0.13.0
@@ -39,15 +39,14 @@ require (
 	github.com/opentracing/opentracing-go v1.1.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pkg/term v1.1.0 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/pulumi/pulumi-aws/sdk/v5 v5.7.0
 	github.com/pulumi/pulumi-eks/sdk v0.40.0
 	github.com/pulumi/pulumi-postgresql/sdk/v3 v3.4.0
-	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/rogpeppe/go-internal v1.8.1 // indirect
 	github.com/sabhiram/go-gitignore v0.0.0-20180611051255-d3107576ba94 // indirect
 	github.com/sergi/go-diff v1.1.0 // indirect
-	github.com/spf13/cast v1.3.1 // indirect
 	github.com/spf13/cobra v1.4.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/src-d/gcfg v1.4.0 // indirect
