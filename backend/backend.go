@@ -88,7 +88,7 @@ func RunDeletionController(ctx context.Context, br DeletionController) error {
 			// TODO: This is a bit of a hack for feeddog. Will cause a circular import if anything in pulumi_backends needs this package
 			if v == "public-sandbox" {
 				spec := &api.Spec{
-					Name:    "pachyderm-demo",
+					Name:    "public-sandbox",
 					Backend: "gcp_cluster",
 				}
 				gnp := &pulumi_backends.Runner{}
