@@ -148,6 +148,7 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 			"pachAuthClusterRoleBindings": pulumi.Map{
 				"allClusterUsers": pulumi.StringArray{pulumi.String("clusterAdmin")},
 			},
+			"localhostIssuer": pulumi.String("true"),
 			"externalService": pulumi.Map{
 				"enabled": pulumi.Bool(true),
 				//						"loadBalancerIP": ipAddress,
@@ -179,6 +180,7 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 				"pachAuthClusterRoleBindings": pulumi.Map{
 					"allClusterUsers": pulumi.StringArray{pulumi.String("clusterAdmin")},
 				},
+				"localhostIssuer": pulumi.String("true"),
 				"externalService": pulumi.Map{
 					"enabled": pulumi.Bool(true),
 					//						"loadBalancerIP": ipAddress,
