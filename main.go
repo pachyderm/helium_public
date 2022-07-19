@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"runtime/debug"
 	"time"
 
 	"github.com/getsentry/sentry-go"
@@ -145,6 +146,18 @@ func (a *App) Initialize() {
 	restRouter.HandleFunc("/workspace/{workspaceId}/expired", handlers.IsExpiredRequest).Methods("GET")
 }
 
+var (
+	// Version will be the version tag if the binary is built with "go install url/tool@version".
+	// If the binary is built some other way, it will be "(devel)".
+	Version = "unknown"
+	// Revision is taken from the vcs.revision tag in Go 1.18+.
+	Revision = "unknown"
+	// LastCommit is taken from the vcs.time tag in Go 1.18+.
+	LastCommit time.Time
+	// DirtyBuild is taken from the vcs.modified tag in Go 1.18+.
+	DirtyBuild = true
+)
+
 func RunAPI() {
 	log.SetReportCaller(true)
 	log.SetLevel(log.DebugLevel)
@@ -156,6 +169,24 @@ func RunAPI() {
 		Handler: app.Router,
 	}
 	//
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		log.Error("unable to read build info")
+	} else {
+		for _, kv := range info.Settings {
+			switch kv.Key {
+			case "vcs.revision":
+				Revision = kv.Value
+			case "vcs.time":
+				LastCommit, _ = time.Parse(time.RFC3339, kv.Value)
+			case "vcs.modified":
+				DirtyBuild = kv.Value == "true"
+			}
+		}
+	}
+	log.Infof("version sha: %s", Revision)
+	log.Infof("version last commit: %s", LastCommit)
+	log.Infof("version dirty: %v", DirtyBuild)
 	log.Info("starting server on :2323")
 	log.Fatal(s.ListenAndServe())
 }
