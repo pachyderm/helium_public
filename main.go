@@ -156,6 +156,7 @@ var (
 	LastCommit time.Time
 	// DirtyBuild is taken from the vcs.modified tag in Go 1.18+.
 	DirtyBuild = true
+	Platform   = ""
 )
 
 func RunAPI() {
@@ -170,9 +171,11 @@ func RunAPI() {
 	}
 	//
 	info, ok := debug.ReadBuildInfo()
+	var version string
 	if !ok {
 		log.Error("unable to read build info")
 	} else {
+		version = info.GoVersion
 		for _, kv := range info.Settings {
 			switch kv.Key {
 			case "vcs.revision":
@@ -181,12 +184,16 @@ func RunAPI() {
 				LastCommit, _ = time.Parse(time.RFC3339, kv.Value)
 			case "vcs.modified":
 				DirtyBuild = kv.Value == "true"
+			case "GOARCH":
+				Platform = kv.Value
 			}
 		}
 	}
 	log.Infof("version sha: %s", Revision)
 	log.Infof("version last commit: %s", LastCommit)
 	log.Infof("version dirty: %v", DirtyBuild)
+	log.Infof("version platform: %v", Platform)
+	log.Infof("version go: %v", version)
 	log.Info("starting server on :2323")
 	log.Fatal(s.ListenAndServe())
 }
