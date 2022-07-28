@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"strings"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 
@@ -86,6 +87,7 @@ func RunDeletionController(ctx context.Context, br DeletionController) error {
 				log.Errorf("deletion controller error destroying: %v", err)
 			}
 			// TODO: This is a bit of a hack for feeddog. Will cause a circular import if anything in pulumi_backends needs this package
+			time.Sleep(time.Minute * 5)
 			if v == "public-sandbox" {
 				spec := &api.Spec{
 					Name:    "public-sandbox",
