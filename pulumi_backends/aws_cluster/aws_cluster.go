@@ -201,7 +201,8 @@ func CreatePulumiProgram(id,
 		}
 
 		bucket, err := s3.NewBucket(ctx, "helium-bucket", &s3.BucketArgs{
-			Acl: pulumi.String("public-read-write"),
+			Acl:          pulumi.String("public-read-write"),
+			ForceDestroy: pulumi.Bool(true),
 		})
 
 		if err != nil {
