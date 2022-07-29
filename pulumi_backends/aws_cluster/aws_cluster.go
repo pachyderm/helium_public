@@ -280,6 +280,13 @@ func CreatePulumiProgram(id,
 				"postgresql": pulumi.Map{
 					"enabled": pulumi.Bool(false),
 				},
+				"loki-stack": pulumi.Map{
+					"loki": pulumi.Map{
+						"persistence": pulumi.Map{
+							"storageClassName": pulumi.String(infraJson.K8S.Nodepools[0].NodeDiskType),
+						},
+					},
+				},
 			},
 		}, pulumi.Provider(k8sProvider))
 
