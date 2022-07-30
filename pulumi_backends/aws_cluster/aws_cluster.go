@@ -283,7 +283,7 @@ func CreatePulumiProgram(id,
 				"loki-stack": pulumi.Map{
 					"loki": pulumi.Map{
 						"persistence": pulumi.Map{
-							"storageClassName": "gp2",
+							"storageClassName": pulumi.String("gp2"),
 						},
 					},
 				},
