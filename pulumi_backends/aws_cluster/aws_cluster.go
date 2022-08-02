@@ -288,6 +288,7 @@ func CreatePulumiProgram(id,
 					},
 				},
 			},
+			Timeout:   pulumi.Int(600),
 		}, pulumi.Provider(k8sProvider))
 
 		if err != nil {
