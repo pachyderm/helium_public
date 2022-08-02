@@ -1,29 +1,24 @@
 package backend
 
 import (
-	"context"
-	"fmt"
-	"testing"
-
-	"github.com/google/go-cmp/cmp"
 	"github.com/pachyderm/helium/api"
 )
 
-func TestDeletionControllerLoop(t *testing.T) {
-	want := &TestBackendRunner{
-		ResourceIDs: &api.ListResponse{[]api.ID{"B", "C", "D"}},
-	}
-	got := &TestBackendRunner{
-		ResourceIDs: &api.ListResponse{[]api.ID{"A", "B", "C", "D"}},
-	}
-	err := RunDeletionController(context.Background(), got)
-	if err != nil {
-		t.Errorf("error: %s", err)
-	}
-	if !cmp.Equal(got, want) {
-		t.Errorf(fmt.Sprintf("diff: %v", cmp.Diff(want, got)))
-	}
-}
+//func TestDeletionControllerLoop(t *testing.T) {
+//	want := &TestBackendRunner{
+//		ResourceIDs: &api.ListResponse{[]api.ID{"B", "C", "D"}},
+//	}
+//	got := &TestBackendRunner{
+//		ResourceIDs: &api.ListResponse{[]api.ID{"A", "B", "C", "D"}},
+//	}
+//	err := RunDeletionController(context.Background(), got)
+//	if err != nil {
+//		t.Errorf("error: %s", err)
+//	}
+//	if !cmp.Equal(got, want) {
+//		t.Errorf(fmt.Sprintf("diff: %v", cmp.Diff(want, got)))
+//	}
+//}
 
 type TestBackendRunner struct {
 	ResourceIDs *api.ListResponse
