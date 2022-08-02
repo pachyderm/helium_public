@@ -234,6 +234,7 @@ func CreatePulumiProgram(id,
 			},
 			Chart:          pulumi.String("pachyderm"),
 			ValueYamlFiles: pulumi.AssetOrArchiveArray(array),
+			Timeout:   pulumi.Int(600),
 			Values: pulumi.Map{
 				"ingress": pulumi.Map{
 					"enabled": pulumi.Bool(true),
