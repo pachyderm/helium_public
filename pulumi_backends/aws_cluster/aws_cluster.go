@@ -305,7 +305,7 @@ func CreatePulumiProgram(id,
 				"loki-stack": pulumi.Map{
 					"loki": pulumi.Map{
 						"persistence": pulumi.Map{
-							"storageClassName": pulumi.String("gp2"),
+							"storageClassName": pulumi.String(infraJson.K8S.Nodepools[0].NodeDiskType),
 						},
 					},
 				},
