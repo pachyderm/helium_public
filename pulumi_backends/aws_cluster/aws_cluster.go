@@ -71,9 +71,11 @@ func CreatePulumiProgram(id,
 			infraJson = api.NewInfraJson()
 		}
 
+		var clusterArgs *eks.ClusterArgs
+
 		switch nodeDiskType := pulumi.String(infraJson.K8S.Nodepools[0].NodeDiskType); nodeDiskType {
 		case "io1":
-			clusterArgs := &eks.ClusterArgs{
+			clusterArgs = &eks.ClusterArgs{
 				InstanceType:       pulumi.String(infraJson.K8S.Nodepools[0].NodeType),
 				DesiredCapacity:    pulumi.Int(infraJson.K8S.Nodepools[0].NodeNumInstances),
 				MinSize:            pulumi.Int(0),
@@ -82,22 +84,22 @@ func CreatePulumiProgram(id,
 				NodeRootVolumeIops: pulumi.Int(infraJson.K8S.Nodepools[0].NodeDiskIOPS),
 			}
 		case "gp3":
-			clusterArgs := &eks.ClusterArgs{
-				InstanceType:       pulumi.String(infraJson.K8S.Nodepools[0].NodeType),
-				DesiredCapacity:    pulumi.Int(infraJson.K8S.Nodepools[0].NodeNumInstances),
-				MinSize:            pulumi.Int(0),
-				MaxSize:            pulumi.Int(infraJson.K8S.Nodepools[0].NodeNumInstances),
-				NodeRootVolumeType: pulumi.String("gp3"),
+			clusterArgs = &eks.ClusterArgs{
+				InstanceType:             pulumi.String(infraJson.K8S.Nodepools[0].NodeType),
+				DesiredCapacity:          pulumi.Int(infraJson.K8S.Nodepools[0].NodeNumInstances),
+				MinSize:                  pulumi.Int(0),
+				MaxSize:                  pulumi.Int(infraJson.K8S.Nodepools[0].NodeNumInstances),
+				NodeRootVolumeType:       pulumi.String("gp3"),
 				NodeRootVolumeThroughput: pulumi.Int(infraJson.K8S.Nodepools[0].NodeDiskIOPS),
 			}
 		default:
 			// gp2
-			clusterArgs := &eks.ClusterArgs{
+			clusterArgs = &eks.ClusterArgs{
 				InstanceType:       pulumi.String(infraJson.K8S.Nodepools[0].NodeType),
 				DesiredCapacity:    pulumi.Int(infraJson.K8S.Nodepools[0].NodeNumInstances),
 				MinSize:            pulumi.Int(0),
 				MaxSize:            pulumi.Int(infraJson.K8S.Nodepools[0].NodeNumInstances),
-				NodeRootVolumeType: pulumi.String("gp2")
+				NodeRootVolumeType: pulumi.String("gp2"),
 			}
 		}
 
@@ -255,7 +257,7 @@ func CreatePulumiProgram(id,
 			},
 			Chart:          pulumi.String("pachyderm"),
 			ValueYamlFiles: pulumi.AssetOrArchiveArray(array),
-			Timeout:   pulumi.Int(900),
+			Timeout:        pulumi.Int(900),
 			Values: pulumi.Map{
 				"ingress": pulumi.Map{
 					"enabled": pulumi.Bool(true),
@@ -283,7 +285,7 @@ func CreatePulumiProgram(id,
 					"externalService": pulumi.Map{
 						"enabled": pulumi.Bool(true),
 					},
-					"localhostIssuer": pulumi.String("true"),
+					"localhostIssuer":      pulumi.String("true"),
 					"enterpriseLicenseKey": pulumi.String("***REMOVED***"), //Set in .circleci/config.yml
 					"oauthClientSecret":    pulumi.String("***REMOVED***"),
 					"rootToken":            pulumi.String("***REMOVED***"),
