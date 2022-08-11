@@ -91,6 +91,7 @@ func CreatePulumiProgram(id,
 				MaxSize:                  pulumi.Int(infraJson.K8S.Nodepools[0].NodeNumInstances),
 				NodeRootVolumeType:       pulumi.String("gp3"),
 				NodeRootVolumeThroughput: pulumi.Int(infraJson.K8S.Nodepools[0].NodeDiskIOPS),
+				StorageClasses:           pulumi.String("gp3"),
 			}
 		default:
 			// gp2
