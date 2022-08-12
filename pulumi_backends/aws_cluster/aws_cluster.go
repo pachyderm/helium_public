@@ -12,6 +12,8 @@ import (
 	"github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes"
 	corev1 "github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/core/v1"
 	"github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/helm/v3"
+	metav1 "github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/meta/v1"
+	storagev1 "github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/storage/v1"
 	postgresql "github.com/pulumi/pulumi-postgresql/sdk/v3/go/postgresql"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 
@@ -91,9 +93,6 @@ func CreatePulumiProgram(id,
 				MaxSize:                  pulumi.Int(infraJson.K8S.Nodepools[0].NodeNumInstances),
 				NodeRootVolumeType:       pulumi.String("gp3"),
 				NodeRootVolumeThroughput: pulumi.Int(infraJson.K8S.Nodepools[0].NodeDiskIOPS),
-				StorageClasses: pulumi.Map{
-					"gp3": pulumi.String("gp3"),
-				},
 			}
 		default:
 			// gp2
@@ -124,6 +123,16 @@ func CreatePulumiProgram(id,
 		k8sProvider, err := kubernetes.NewProvider(ctx, "k8sprovider", &kubernetes.ProviderArgs{
 			Kubeconfig: kubeConf,
 		})
+
+		if err != nil {
+			return err
+		}
+
+		_, err = storagev1.NewStorageClass(ctx, "gp3", &storagev1.StorageClassArgs{
+			Metadata: &metav1.ObjectMetaArgs{
+				Name: pulumi.String("gp3"),
+			},
+		}, pulumi.Provider(k8sProvider))
 
 		if err != nil {
 			return err
