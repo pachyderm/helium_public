@@ -129,6 +129,7 @@ func CreatePulumiProgram(id,
 		}
 
 		_, err = storagev1.NewStorageClass(ctx, "gp3", &storagev1.StorageClassArgs{
+			Provisioner: pulumi.String("ebs.csi.aws.com"),
 			Metadata: &metav1.ObjectMetaArgs{
 				Name: pulumi.String("gp3"),
 			},
