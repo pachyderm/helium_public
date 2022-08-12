@@ -132,7 +132,7 @@ func CreatePulumiProgram(id,
 		}
 
 		clusterRole := cluster.EksCluster.RoleArn().ApplyT(func(s string) string {
-			return strings.Trim(s, "arn:aws:iam::011466359146:role/")
+			return strings.TrimPrefix(s, "arn:aws:iam::011466359146:role/")
 		}).(pulumi.StringOutput)
 
 		_, err = iam.NewRolePolicyAttachment(ctx, "attach-ebs-csi-policy", &iam.RolePolicyAttachmentArgs{
