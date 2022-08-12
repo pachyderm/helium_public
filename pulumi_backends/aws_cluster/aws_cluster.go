@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 
+	awseks "github.com/pulumi/pulumi-aws/sdk/v5/go/aws/eks"
+	"github.com/pulumi/pulumi-aws/sdk/v5/go/aws/iam"
 	"github.com/pulumi/pulumi-aws/sdk/v5/go/aws/rds"
 	"github.com/pulumi/pulumi-aws/sdk/v5/go/aws/s3"
 	"github.com/pulumi/pulumi-eks/sdk/go/eks"
@@ -128,10 +130,30 @@ func CreatePulumiProgram(id,
 			return err
 		}
 
+		_, err = iam.NewRolePolicyAttachment(ctx, "attach-ebs-csi-policy", &iam.RolePolicyAttachmentArgs{
+			Role:      cluster.EksCluster.RoleArn(),
+			PolicyArn: pulumi.String("arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"),
+		})
+		if err != nil {
+			return err
+		}
+
+		_, err = awseks.NewAddon(ctx, "aws-ebs-csi-driver", &awseks.AddonArgs{
+			ClusterName: cluster.EksCluster.Name(),
+			AddonName:   pulumi.String("aws-ebs-csi-driver"),
+		})
+		if err != nil {
+			return err
+		}
+
 		_, err = storagev1.NewStorageClass(ctx, "gp3", &storagev1.StorageClassArgs{
 			Provisioner: pulumi.String("ebs.csi.aws.com"),
 			Metadata: &metav1.ObjectMetaArgs{
 				Name: pulumi.String("gp3"),
+			},
+			Parameters: pulumi.StringMap{
+				"type":   pulumi.String("gp3"),
+				"fsType": pulumi.String("ext4"),
 			},
 		}, pulumi.Provider(k8sProvider))
 
