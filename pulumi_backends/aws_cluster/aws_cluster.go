@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	awseks "github.com/pulumi/pulumi-aws/sdk/v5/go/aws/eks"
 	"github.com/pulumi/pulumi-aws/sdk/v5/go/aws/iam"
@@ -130,8 +131,12 @@ func CreatePulumiProgram(id,
 			return err
 		}
 
+		clusterRole := cluster.EksCluster.RoleArn().ApplyT(func(s string) string {
+			return strings.Trim(s, "arn:aws:iam::011466359146:role/")
+		}).(pulumi.StringOutput)
+
 		_, err = iam.NewRolePolicyAttachment(ctx, "attach-ebs-csi-policy", &iam.RolePolicyAttachmentArgs{
-			Role:      cluster.EksCluster.RoleArn(),
+			Role:      clusterRole,
 			PolicyArn: pulumi.String("arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"),
 		})
 		if err != nil {
