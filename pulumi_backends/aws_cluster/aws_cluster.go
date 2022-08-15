@@ -144,8 +144,9 @@ func CreatePulumiProgram(id,
 		}
 
 		_, err = awseks.NewAddon(ctx, "aws-ebs-csi-driver", &awseks.AddonArgs{
-			ClusterName: cluster.EksCluster.Name(),
-			AddonName:   pulumi.String("aws-ebs-csi-driver"),
+			ClusterName:           cluster.EksCluster.Name(),
+			AddonName:             pulumi.String("aws-ebs-csi-driver"),
+			ServiceAccountRoleArn: clusterRole,
 		})
 		if err != nil {
 			return err
