@@ -87,6 +87,7 @@ func CreatePulumiProgram(id,
 				MaxSize:            pulumi.Int(infraJson.K8S.Nodepools[0].NodeNumInstances),
 				NodeRootVolumeType: pulumi.String("io1"),
 				NodeRootVolumeIops: pulumi.Int(infraJson.K8S.Nodepools[0].NodeDiskIOPS),
+				CreateOidcProvider: pulumi.Bool(true),
 			}
 		case "gp3":
 			clusterArgs = &eks.ClusterArgs{
@@ -96,6 +97,7 @@ func CreatePulumiProgram(id,
 				MaxSize:                  pulumi.Int(infraJson.K8S.Nodepools[0].NodeNumInstances),
 				NodeRootVolumeType:       pulumi.String("gp3"),
 				NodeRootVolumeThroughput: pulumi.Int(infraJson.K8S.Nodepools[0].NodeDiskIOPS),
+				CreateOidcProvider:       pulumi.Bool(true),
 			}
 		default:
 			// gp2
@@ -105,6 +107,7 @@ func CreatePulumiProgram(id,
 				MinSize:            pulumi.Int(0),
 				MaxSize:            pulumi.Int(infraJson.K8S.Nodepools[0].NodeNumInstances),
 				NodeRootVolumeType: pulumi.String("gp2"),
+				CreateOidcProvider: pulumi.Bool(true),
 			}
 		}
 
