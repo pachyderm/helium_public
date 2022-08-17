@@ -134,14 +134,69 @@ func CreatePulumiProgram(id,
 			return err
 		}
 
-		clusterRole := cluster.EksCluster.RoleArn().ApplyT(func(s string) string {
-			return strings.TrimPrefix(s, "arn:aws:iam::011466359146:role/")
-		}).(pulumi.StringOutput)
+		clusterOidcProviderUrl := cluster.Core.OidcProvider().Url()
+
+		assumeRolePolicyDocument := pulumi.All(clusterOidcProviderUrl, cluster.Core.OidcProvider().Arn()).ApplyT(func(args []interface{}) (string, error) {
+			url := args[0].(string)
+			arn := args[1].(string)
+
+			urlTrimmed := strings.TrimPrefix(url, "https://")
+			urlAud := fmt.Sprintf("%s:aud", urlTrimmed)
+			urlSub := fmt.Sprintf("%s:sub", urlTrimmed)
+
+			assumeRolePolicy, _ := iam.GetPolicyDocument(ctx, &iam.GetPolicyDocumentArgs{
+				Statements: []iam.GetPolicyDocumentStatement{
+					{
+						Sid: &[]string{"allowK8sServiceAccount"}[0],
+						Actions: []string{
+							"sts:AssumeRoleWithWebIdentity",
+						},
+						Principals: []iam.GetPolicyDocumentStatementPrincipal{
+							{
+								Identifiers: []string{
+									arn,
+								},
+								Type: "Federated",
+							},
+						},
+						Conditions: []iam.GetPolicyDocumentStatementCondition{
+							{
+								Test:     "StringEquals",
+								Variable: urlAud,
+								Values: []string{
+									"sts.amazonaws.com",
+								},
+							},
+							{
+								Test:     "StringEquals",
+								Variable: urlSub,
+								Values: []string{
+									"system:serviceaccount:kube-system:ebs-csi-controller-sa",
+								},
+							},
+						},
+					},
+				},
+			})
+			if err != nil {
+				return "", err
+			}
+			return assumeRolePolicy.Json, nil
+		})
+
+		saRole, err := iam.NewRole(ctx, "heliumSaRole", &iam.RoleArgs{
+			AssumeRolePolicy: assumeRolePolicyDocument,
+		})
+
+		if err != nil {
+			return err
+		}
 
 		_, err = iam.NewRolePolicyAttachment(ctx, "attach-ebs-csi-policy", &iam.RolePolicyAttachmentArgs{
-			Role:      clusterRole,
+			Role:      saRole,
 			PolicyArn: pulumi.String("arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"),
 		})
+
 		if err != nil {
 			return err
 		}
@@ -149,7 +204,7 @@ func CreatePulumiProgram(id,
 		_, err = awseks.NewAddon(ctx, "aws-ebs-csi-driver", &awseks.AddonArgs{
 			ClusterName:           cluster.EksCluster.Name(),
 			AddonName:             pulumi.String("aws-ebs-csi-driver"),
-			ServiceAccountRoleArn: cluster.EksCluster.RoleArn(),
+			ServiceAccountRoleArn: saRole.Arn,
 		})
 		if err != nil {
 			return err
@@ -324,6 +379,16 @@ func CreatePulumiProgram(id,
 							"region": pulumi.String("us-west-2"),
 							"id":     pulumi.String(awsSAkey),
 							"secret": pulumi.String(awsSAsecret),
+						},
+					},
+					"serviceAccount": pulumi.Map{
+						"additionalAnnotations": pulumi.Map{
+							"eks.amazonaws.com/role-arn": saRole.Arn,
+						},
+					},
+					"worker": pulumi.Map{
+						"additionalAnnotations": pulumi.Map{
+							"eks.amazonaws.com/role-arn": saRole.Arn,
 						},
 					},
 					"externalService": pulumi.Map{
