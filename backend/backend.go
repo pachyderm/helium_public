@@ -67,7 +67,11 @@ func RunDeletionController(ctx context.Context, br DeletionController) error {
 	if err != nil {
 		return err
 	}
+	var sandboxPresent bool
 	for _, v := range id.IDs {
+		if v == "public-sandbox" {
+			sandboxPresent = true
+		}
 		b, err := br.IsExpired(v)
 		if err != nil {
 			if strings.Contains(err.Error(), "expected stack output 'helium-expiry' not found for stack") {
@@ -102,5 +106,17 @@ func RunDeletionController(ctx context.Context, br DeletionController) error {
 			}
 		}
 	}
+	if !sandboxPresent {
+		spec := &api.Spec{
+			Name:    "public-sandbox",
+			Backend: "gcp_cluster",
+		}
+		gnp := &pulumi_backends.Runner{}
+		_, err = gnp.Create(spec)
+		if err != nil {
+			log.Errorf("create handler: %v", err)
+		}
+	}
+
 	return nil
 }
