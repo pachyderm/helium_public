@@ -67,10 +67,10 @@ func RunDeletionController(ctx context.Context, br DeletionController) error {
 	if err != nil {
 		return err
 	}
-	var sandbox bool
+	var sandboxPresent bool
 	for _, v := range id.IDs {
 		if v == "public-sandbox" {
-			sandbox = true
+			sandboxPresent = true
 		}
 		b, err := br.IsExpired(v)
 		if err != nil {
@@ -106,7 +106,7 @@ func RunDeletionController(ctx context.Context, br DeletionController) error {
 			}
 		}
 	}
-	if !sandbox {
+	if !sandboxPresent {
 		spec := &api.Spec{
 			Name:    "public-sandbox",
 			Backend: "gcp_cluster",
