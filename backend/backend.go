@@ -95,8 +95,9 @@ func RunDeletionController(ctx context.Context, br DeletionController) error {
 			time.Sleep(time.Minute * 5)
 			if v == "public-sandbox" {
 				spec := &api.Spec{
-					Name:    "public-sandbox",
-					Backend: "gcp_cluster",
+					Name:           "public-sandbox",
+					Backend:        "gcp_cluster",
+					ConsoleVersion: "2.3.2-2",
 				}
 				gnp := &pulumi_backends.Runner{}
 				_, err = gnp.Create(spec)
@@ -108,8 +109,9 @@ func RunDeletionController(ctx context.Context, br DeletionController) error {
 	}
 	if !sandboxPresent {
 		spec := &api.Spec{
-			Name:    "public-sandbox",
-			Backend: "gcp_cluster",
+			Name:           "public-sandbox",
+			Backend:        "gcp_cluster",
+			ConsoleVersion: "2.3.2-2",
 		}
 		gnp := &pulumi_backends.Runner{}
 		_, err = gnp.Create(spec)
