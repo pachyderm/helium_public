@@ -1,13 +1,12 @@
 # Helium
 
-A standardized interface for provisioning pachyderm instances. Currently the only supported backend leverages pulumi to create new workspaces in a single cluster in GCP, sharding by namespace. These are closer to real "production" pachyderm instances, as Console, Notebooks, Auth, TLS, DNS, Ingress, GPUs, and Autoscaling is all correctly wired up. Helium itself is stateless, pushing that concern onto the responsibility of it's backends.
+A standardized interface for provisioning pachyderm instances. The primary backend leverages pulumi to create new workspaces in a single cluster in GCP, sharding by namespace. These are closer to real "production" pachyderm instances, as Console, Notebooks, Auth, TLS, DNS, Ingress, GPUs, and Autoscaling is all correctly wired up. Helium itself is stateless, pushing that concern onto the responsibility of it's backends (currently, all of which are pulumi based).
 
 By default all workspaces are deleted at midnight of the day they are created. However, expiration is configurable for up to 90 days. The DeletionController which runs as part of the controlplane takes care of automatically deleting those environments which are expired.  
 
 Auth is enabled by default and setup with Auth0.
 
 Requirements for this project can be found here: `https://docs.google.com/document/d/1qFMMBQOS_KwHpRAiiwFwzRkvd5d5BKfSuxkchq6ra9U/edit`
-
 
 ## Using Helium UI
 
@@ -116,11 +115,33 @@ done
 
 Helium allows you to specify your own values.yaml file.  However, values defined in pulumi.Values struct take precedence.  Future work needs to be done to move all values that aren't dynamic to values.yml files, which can then be leveraged by pulumi, instead of being defined as a pulumi.Map.
 
+It's less supported, but calling the create api or workspace form with an already existing workspace name will allow you to update that workspace. This could be useful for updating the console image for instance. However, this code pathway is less exercised. If straying from the happy path of mutating image tags, things might not work as expected.  
+
 GPUs and autoprovisioning - It works the same way as it did on Hub. If you correctly specify your pipelines, you can let the workers use GPUs.
 
 Pachd or the other components of the helm chart can have their resource requests and limits set accordingly, and the cluster will autoprovision node pools if possible that meet the requirements of the requests. Limits do not cause autoprovisioning, but are important to specify for reproducible experimentation.
 
-It's less supported, but calling the create api or workspace form with an already existing workspace name will allow you to update that workspace. This could be useful for updating the console image for instance. However, this code pathway is less exercised. If straying from the happy path of mutating image tags, things might not work as expected.  
+### Loadtesting 
+
+Additional Nodepools are defined here: https://github.com/pachyderm/infrastructure/blob/master/ci/main.go
+
+One nodepool is adhoc-loadtesting, which will enabled you to scale from 0-8 n2d-standard-32 machines, allowing up to 256 CPU cores and 1 TB of Memory.
+
+```
+To enable it for your pipelines, add the following to your pipeline spec:
+  "scheduling_spec": {
+    "node_selector": {"adhoc-loadtesting": "enabled"},
+},
+```
+
+To enable it for pachd or other helm chart components, add the following to your values.yaml file:
+pachd:
+```
+  nodeSelector:
+    adhoc-loadtesting: "enabled"
+ ```
+ Don't forget to set the correct memory and cpu requests as well for all of the various components!
+
 
 ## Troubleshooting Workspace Creation
 
