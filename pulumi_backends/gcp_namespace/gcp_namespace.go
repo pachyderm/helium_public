@@ -279,10 +279,11 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 		if err != nil {
 			return err
 		}
+		nbUserImage := "pachyderm/notebooks-user" + ":" + DefaultJupyterImage
 
-		jupyterImage := DefaultJupyterImage
+		//	jupyterImage := DefaultJupyterImage
 		if notebooksVersion != "" {
-			jupyterImage = notebooksVersion
+			nbUserImage = "pachyderm/notebooks-user" + ":" + notebooksVersion
 		}
 		// file, err := ioutil.ReadFile("./root.py")
 		volumeFile, err := ioutil.ReadFile("./volume.py")
@@ -292,9 +293,7 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 		volumeStr := string(volumeFile)
 		// fileStr := string(file)
 
-		nbUserImage := "pachyderm/notebooks-user" + ":" + DefaultJupyterImage
-
-		juypterURL := pulumi.String("jh-" + id + ".***REMOVED***")
+		jupyterURL := pulumi.String("jh-" + id + ".***REMOVED***")
 
 		_, err = helm.NewRelease(ctx, "jh-release", &helm.ReleaseArgs{
 			Namespace: namespace.Metadata.Elem().Name(),
@@ -308,62 +307,50 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 			Values: pulumi.Map{
 				"singleuser": pulumi.Map{
 					"defaultUrl": pulumi.String("/lab"),
-					"image": pulumi.Map{
-						"name": pulumi.String("pachyderm/notebooks-user"),
-						"tag":  pulumi.String(jupyterImage),
-					},
 					"cloudMetadata": pulumi.Map{
 						"blockWithIptables": pulumi.Bool(false),
 					},
 					"profileList": pulumi.MapArray{
 						pulumi.Map{
-							"fsGid":        pulumi.Int(0),
 							"display_name": pulumi.String("combined"),
-							"extraEnv": pulumi.Map{
-								"description":        pulumi.String("Run mount server in Jupyter container"),
-								"GRANT_SUDO":         pulumi.String("yes"),
-								"slug":               pulumi.String("combined"),
-								"NOTEBOOK_ARGS":      pulumi.String("--allow-root"),
-								"default":            pulumi.Bool(true),
-								"JUPYTER_ENABLE_LAB": pulumi.String("yes"),
-								"kubespawner_override": pulumi.Map{
-									"CHOWN_HOME":      pulumi.String("yes"),
-									"image":           pulumi.String(nbUserImage),
-									"CHOWN_HOME_OPTS": pulumi.String("-R"),
-									"cmd":             pulumi.String("start-singleuser.sh"),
-									"uid":             pulumi.Int(0),
-									"fs_gid":          pulumi.Int(0),
-									"environment": pulumi.Map{
-										"GRANT_SUDO":         pulumi.String("yes"),
-										"NOTEBOOK_ARGS":      pulumi.String("--allow-root"),
-										"JUPYTER_ENABLE_LAB": pulumi.String("yes"),
-										"CHOWN_HOME":         pulumi.String("yes"),
-										"CHOWN_HOME_OPTS":    pulumi.String("-R"),
-									},
-									"container_security_context": pulumi.Map{
-										"allowPrivilegeEscalation": pulumi.Bool(true),
-										"runAsUser":                pulumi.Int(0),
-										"privileged":               pulumi.Bool(true),
-										"capabilities": pulumi.Map{
-											"add": pulumi.StringArray{pulumi.String("SYS_ADMIN")},
-										},
+							"description":  pulumi.String("Run mount server in Jupyter container"),
+							"slug":         pulumi.String("combined"),
+							"default":      pulumi.Bool(true),
+							"kubespawner_override": pulumi.Map{
+								"image":  pulumi.String(nbUserImage),
+								"cmd":    pulumi.String("start-singleuser.sh"),
+								"uid":    pulumi.Int(0),
+								"fs_gid": pulumi.Int(0),
+								"environment": pulumi.Map{
+									"GRANT_SUDO":         pulumi.String("yes"),
+									"NOTEBOOK_ARGS":      pulumi.String("--allow-root"),
+									"JUPYTER_ENABLE_LAB": pulumi.String("yes"),
+									"CHOWN_HOME":         pulumi.String("yes"),
+									"CHOWN_HOME_OPTS":    pulumi.String("-R"),
+								},
+								"container_security_context": pulumi.Map{
+									"allowPrivilegeEscalation": pulumi.Bool(true),
+									"runAsUser":                pulumi.Int(0),
+									"privileged":               pulumi.Bool(true),
+									"capabilities": pulumi.Map{
+										"add": pulumi.StringArray{pulumi.String("SYS_ADMIN")},
 									},
 								},
 							},
 						},
 						pulumi.Map{
+
 							"display_name": pulumi.String("sidecar"),
 							"slug":         pulumi.String("sidecar"),
 							"description":  pulumi.String("Run mount server as a sidecar"),
 							"kubespawner_override": pulumi.Map{
 								"image": pulumi.String(nbUserImage),
 								"environment": pulumi.Map{
-									"ENSURE_MOUNT_SERVER": pulumi.String("false"),
+									"SIDECAR_MODE": pulumi.String("true"),
 								},
 								"extra_containers": pulumi.MapArray{
 									pulumi.Map{
-										"name": pulumi.String("mount-server-manager"),
-										// TODO: Could this just be pointing at a nightly release? Probably better to maintain parity with preview environments
+										"name":    pulumi.String("mount-server-manager"),
 										"image":   pulumi.String("pachyderm/mount-server:7d2471590000c6ac847a64a77e3f6c0687e64f01"),
 										"command": pulumi.StringArray{pulumi.String("/bin/bash"), pulumi.String("-c"), pulumi.String("mount-server")},
 										"securityContext": pulumi.Map{
@@ -382,43 +369,41 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 							},
 						},
 					},
-					//cull
-					"ingress": pulumi.Map{
-						"enabled": pulumi.Bool(true),
-						"annotations": pulumi.Map{
-							"kubernetes.io/ingress.class":              pulumi.String("traefik"),
-							"traefik.ingress.kubernetes.io/router.tls": pulumi.String("true"),
-						},
-						"hosts": pulumi.StringArray{juypterURL},
-						"tls": pulumi.MapArray{
-							pulumi.Map{
-								"hosts":      pulumi.StringArray{pulumi.String("jh-" + id + ".***REMOVED***")},
-								"secretName": pulumi.String("wildcard-tls"),
-							},
+				},
+				//cull
+				"ingress": pulumi.Map{
+					"enabled": pulumi.Bool(true),
+					"annotations": pulumi.Map{
+						"kubernetes.io/ingress.class":              pulumi.String("traefik"),
+						"traefik.ingress.kubernetes.io/router.tls": pulumi.String("true"),
+					},
+					"hosts": pulumi.StringArray{jupyterURL},
+					"tls": pulumi.MapArray{
+						pulumi.Map{
+							"hosts":      pulumi.StringArray{jupyterURL},
+							"secretName": pulumi.String("wildcard-tls"),
 						},
 					},
-					// "hub": pulumi.Map{},//Auth stuff
-					"prePuller": pulumi.Map{
-						"hook": pulumi.Map{
-							"enabled": pulumi.Bool(false),
-						},
+				},
+				"prePuller": pulumi.Map{
+					"hook": pulumi.Map{
+						"enabled": pulumi.Bool(false),
 					},
-					"hub": pulumi.Map{
-						// TODO: wireup auth0 here
-						"extraConfig": pulumi.Map{
-							// "podRoot": pulumi.String(fileStr),
-							"volume": pulumi.String(volumeStr),
-						},
+				},
+				"hub": pulumi.Map{
+					"extraConfig": pulumi.Map{
+						//"podRoot": pulumi.String(fileStr),
+						"volume": pulumi.String(volumeStr),
 					},
-					"proxy": pulumi.Map{
-						"service": pulumi.Map{
-							"type": pulumi.String("ClusterIP"),
-						},
+				},
+				"proxy": pulumi.Map{
+					"service": pulumi.Map{
+						"type": pulumi.String("ClusterIP"),
 					},
-					"scheduling": pulumi.Map{
-						"userScheduler": pulumi.Map{
-							"enabled": pulumi.Bool(false),
-						},
+				},
+				"scheduling": pulumi.Map{
+					"userScheduler": pulumi.Map{
+						"enabled": pulumi.Bool(false),
 					},
 				},
 			},
@@ -431,7 +416,7 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 		ctx.Export("createdBy", pulumi.String(createdBy))
 		ctx.Export("status", pulumi.String("ready"))
 		ctx.Export("pachdip", gcpL4LoadBalancerIP)
-		ctx.Export("juypterUrl", juypterURL)
+		ctx.Export("juypterUrl", jupyterURL)
 		ctx.Export("consoleUrl", consoleUrl)
 		ctx.Export("k8sNamespace", namespace.Metadata.Elem().Name())
 		ctx.Export("bucket", bucket.Name)
