@@ -284,11 +284,15 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 		if notebooksVersion != "" {
 			jupyterImage = notebooksVersion
 		}
-		file, err := ioutil.ReadFile("./root.py")
+		// file, err := ioutil.ReadFile("./root.py")
+		volumeFile, err := ioutil.ReadFile("./volume.py")
 		if err != nil {
 			return err
 		}
-		fileStr := string(file)
+		volumeStr := string(volumeFile)
+		// fileStr := string(file)
+
+		nbUserImage := "pachyderm/notebooks-user" + ":" + DefaultJupyterImage
 
 		juypterURL := pulumi.String("jh-" + id + ".***REMOVED***")
 
@@ -311,52 +315,110 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 					"cloudMetadata": pulumi.Map{
 						"blockWithIptables": pulumi.Bool(false),
 					},
-					"cmd":   pulumi.String("start-singleuser.sh"),
-					"uid":   pulumi.Int(0),
-					"fsGid": pulumi.Int(0),
-					"extraEnv": pulumi.Map{
-						"GRANT_SUDO":         pulumi.String("yes"),
-						"NOTEBOOK_ARGS":      pulumi.String("--allow-root"),
-						"JUPYTER_ENABLE_LAB": pulumi.String("yes"),
-						"CHOWN_HOME":         pulumi.String("yes"),
-						"CHOWN_HOME_OPTS":    pulumi.String("-R"),
-					},
-					//profileList
-				},
-				//cull
-				"ingress": pulumi.Map{
-					"enabled": pulumi.Bool(true),
-					"annotations": pulumi.Map{
-						"kubernetes.io/ingress.class":              pulumi.String("traefik"),
-						"traefik.ingress.kubernetes.io/router.tls": pulumi.String("true"),
-					},
-					"hosts": pulumi.StringArray{juypterURL},
-					"tls": pulumi.MapArray{
+					"profileList": pulumi.MapArray{
 						pulumi.Map{
-							"hosts":      pulumi.StringArray{pulumi.String("jh-" + id + ".***REMOVED***")},
-							"secretName": pulumi.String("wildcard-tls"),
+							"fsGid":        pulumi.Int(0),
+							"display_name": pulumi.String("combined"),
+							"extraEnv": pulumi.Map{
+								"description":        pulumi.String("Run mount server in Jupyter container"),
+								"GRANT_SUDO":         pulumi.String("yes"),
+								"slug":               pulumi.String("combined"),
+								"NOTEBOOK_ARGS":      pulumi.String("--allow-root"),
+								"default":            pulumi.Bool(true),
+								"JUPYTER_ENABLE_LAB": pulumi.String("yes"),
+								"kubespawner_override": pulumi.Map{
+									"CHOWN_HOME":      pulumi.String("yes"),
+									"image":           pulumi.String(nbUserImage),
+									"CHOWN_HOME_OPTS": pulumi.String("-R"),
+									"cmd":             pulumi.String("start-singleuser.sh"),
+									"uid":             pulumi.Int(0),
+									"fs_gid":          pulumi.Int(0),
+									"environment": pulumi.Map{
+										"GRANT_SUDO":         pulumi.String("yes"),
+										"NOTEBOOK_ARGS":      pulumi.String("--allow-root"),
+										"JUPYTER_ENABLE_LAB": pulumi.String("yes"),
+										"CHOWN_HOME":         pulumi.String("yes"),
+										"CHOWN_HOME_OPTS":    pulumi.String("-R"),
+									},
+									"container_security_context": pulumi.Map{
+										"allowPrivilegeEscalation": pulumi.Bool(true),
+										"runAsUser":                pulumi.Int(0),
+										"privileged":               pulumi.Bool(true),
+										"capabilities": pulumi.Map{
+											"add": pulumi.StringArray{pulumi.String("SYS_ADMIN")},
+										},
+									},
+								},
+							},
+						},
+						pulumi.Map{
+							"display_name": pulumi.String("sidecar"),
+							"slug":         pulumi.String("sidecar"),
+							"description":  pulumi.String("Run mount server as a sidecar"),
+							"kubespawner_override": pulumi.Map{
+								"image": pulumi.String(nbUserImage),
+								"environment": pulumi.Map{
+									"ENSURE_MOUNT_SERVER": pulumi.String("false"),
+								},
+								"extra_containers": pulumi.MapArray{
+									pulumi.Map{
+										"name": pulumi.String("mount-server-manager"),
+										// TODO: Could this just be pointing at a nightly release? Probably better to maintain parity with preview environments
+										"image":   pulumi.String("pachyderm/mount-server:7d2471590000c6ac847a64a77e3f6c0687e64f01"),
+										"command": pulumi.StringArray{pulumi.String("/bin/bash"), pulumi.String("-c"), pulumi.String("mount-server")},
+										"securityContext": pulumi.Map{
+											"privileged": pulumi.Bool(true),
+											"runAsUser":  pulumi.Int(0),
+										},
+										"volumeMounts": pulumi.MapArray{
+											pulumi.Map{
+												"name":             pulumi.String("shared-pfs"),
+												"mountPath":        pulumi.String("/pfs"),
+												"mountPropagation": pulumi.String("Bidirectional"),
+											},
+										},
+									},
+								},
+							},
 						},
 					},
-				},
-				// "hub": pulumi.Map{},//Auth stuff
-				"prePuller": pulumi.Map{
-					"hook": pulumi.Map{
-						"enabled": pulumi.Bool(false),
+					//cull
+					"ingress": pulumi.Map{
+						"enabled": pulumi.Bool(true),
+						"annotations": pulumi.Map{
+							"kubernetes.io/ingress.class":              pulumi.String("traefik"),
+							"traefik.ingress.kubernetes.io/router.tls": pulumi.String("true"),
+						},
+						"hosts": pulumi.StringArray{juypterURL},
+						"tls": pulumi.MapArray{
+							pulumi.Map{
+								"hosts":      pulumi.StringArray{pulumi.String("jh-" + id + ".***REMOVED***")},
+								"secretName": pulumi.String("wildcard-tls"),
+							},
+						},
 					},
-				},
-				"hub": pulumi.Map{
-					"extraConfig": pulumi.Map{
-						"podRoot": pulumi.String(fileStr),
+					// "hub": pulumi.Map{},//Auth stuff
+					"prePuller": pulumi.Map{
+						"hook": pulumi.Map{
+							"enabled": pulumi.Bool(false),
+						},
 					},
-				},
-				"proxy": pulumi.Map{
-					"service": pulumi.Map{
-						"type": pulumi.String("ClusterIP"),
+					"hub": pulumi.Map{
+						// TODO: wireup auth0 here
+						"extraConfig": pulumi.Map{
+							// "podRoot": pulumi.String(fileStr),
+							"volume": pulumi.String(volumeStr),
+						},
 					},
-				},
-				"scheduling": pulumi.Map{
-					"userScheduler": pulumi.Map{
-						"enabled": pulumi.Bool(false),
+					"proxy": pulumi.Map{
+						"service": pulumi.Map{
+							"type": pulumi.String("ClusterIP"),
+						},
+					},
+					"scheduling": pulumi.Map{
+						"userScheduler": pulumi.Map{
+							"enabled": pulumi.Bool(false),
+						},
 					},
 				},
 			},
