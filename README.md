@@ -84,18 +84,10 @@ curl -X POST -H "Authorization: Bearer ***REMOVED***" -F name=example-workspace-
 Where `testval.yml` is a values.yaml file in my current directory.
 
 
-Deleting a workspace manually:
+#### Deleting a workspace manually:
 ```shell
 curl -X DELETE -H "Authorization: Bearer ***REMOVED***"  https://helium.***REMOVED***/v1/api/workspace/example-workspace-id
 ```
-
-
-
-In another tab in order to run the DeletionController:
-```shell
-HELIUM_MODE=CONTROLPLANE HELIUM_CLIENT_SECRET="XXXXXXXXXX" HELIUM_CLIENT_ID="XXXXXX"   go run main.go
-```
-The deletionController automatically queries every environment to check it's expiry, and if it's expired, it automatically deletes it.
 
 If needing to implement a polling mechanism in bash for automation purposes, the following might help:
 
@@ -158,6 +150,12 @@ In order to run the API, in a terminal tab run:
 ```shell
 HELIUM_MODE=API HELIUM_CLIENT_SECRET="XXXXXXXXXXXX" HELIUM_CLIENT_ID="XXXXXXXXXX"   go run main.go
 ```
+
+In another tab in order to run the DeletionController:
+```shell
+HELIUM_MODE=CONTROLPLANE HELIUM_CLIENT_SECRET="XXXXXXXXXX" HELIUM_CLIENT_ID="XXXXXX"   go run main.go
+```
+The deletionController automatically queries every environment to check it's expiry, and if it's expired, it automatically deletes it.
 
 ## Development Overview
 
