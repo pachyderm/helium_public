@@ -68,6 +68,7 @@ ARG AWS_KEY
 ARG AWS_SECRET
 
 COPY --from=build /app/out /out
+COPY --from=build /app/volume.py /volume.py
 COPY --from=build /app/root.py /root.py
 COPY --from=build /app/workspace-wildcard.yaml /workspace-wildcard.yaml
 COPY --from=build /app/templates /templates

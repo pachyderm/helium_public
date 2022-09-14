@@ -23,7 +23,7 @@ import (
 const (
 	BackendName         = "gcp-namespace"
 	timeFormat          = "2006-01-02"
-	DefaultJupyterImage = "v0.5.1"
+	DefaultJupyterImage = "v0.6.2"
 	// This is an internal GCP ID, not sure if it's exposed at all through pulumi.  I got it by doing a GET call directly against their API here:
 	// https://cloud.google.com/dns/docs/reference/v1/managedZones/get?apix_params=%7B%22project%22%3A%22***REMOVED***%22%2C%22managedZone%22%3A%22test-ci%22%7D
 	TestCiManagedZoneGcpId = "***REMOVED***"
@@ -279,18 +279,21 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 		if err != nil {
 			return err
 		}
+		nbUserImage := "pachyderm/notebooks-user" + ":" + DefaultJupyterImage
 
-		jupyterImage := DefaultJupyterImage
+		//	jupyterImage := DefaultJupyterImage
 		if notebooksVersion != "" {
-			jupyterImage = notebooksVersion
+			nbUserImage = "pachyderm/notebooks-user" + ":" + notebooksVersion
 		}
-		file, err := ioutil.ReadFile("./root.py")
+		// file, err := ioutil.ReadFile("./root.py")
+		volumeFile, err := ioutil.ReadFile("./volume.py")
 		if err != nil {
 			return err
 		}
-		fileStr := string(file)
+		volumeStr := string(volumeFile)
+		// fileStr := string(file)
 
-		juypterURL := pulumi.String("jh-" + id + ".***REMOVED***")
+		jupyterURL := pulumi.String("jh-" + id + ".***REMOVED***")
 
 		_, err = helm.NewRelease(ctx, "jh-release", &helm.ReleaseArgs{
 			Namespace: namespace.Metadata.Elem().Name(),
@@ -304,24 +307,68 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 			Values: pulumi.Map{
 				"singleuser": pulumi.Map{
 					"defaultUrl": pulumi.String("/lab"),
-					"image": pulumi.Map{
-						"name": pulumi.String("pachyderm/notebooks-user"),
-						"tag":  pulumi.String(jupyterImage),
-					},
 					"cloudMetadata": pulumi.Map{
 						"blockWithIptables": pulumi.Bool(false),
 					},
-					"cmd":   pulumi.String("start-singleuser.sh"),
-					"uid":   pulumi.Int(0),
-					"fsGid": pulumi.Int(0),
-					"extraEnv": pulumi.Map{
-						"GRANT_SUDO":         pulumi.String("yes"),
-						"NOTEBOOK_ARGS":      pulumi.String("--allow-root"),
-						"JUPYTER_ENABLE_LAB": pulumi.String("yes"),
-						"CHOWN_HOME":         pulumi.String("yes"),
-						"CHOWN_HOME_OPTS":    pulumi.String("-R"),
+					"profileList": pulumi.MapArray{
+						pulumi.Map{
+							"display_name": pulumi.String("combined"),
+							"description":  pulumi.String("Run mount server in Jupyter container"),
+							"slug":         pulumi.String("combined"),
+							"default":      pulumi.Bool(true),
+							"kubespawner_override": pulumi.Map{
+								"image":  pulumi.String(nbUserImage),
+								"cmd":    pulumi.String("start-singleuser.sh"),
+								"uid":    pulumi.Int(0),
+								"fs_gid": pulumi.Int(0),
+								"environment": pulumi.Map{
+									"GRANT_SUDO":         pulumi.String("yes"),
+									"NOTEBOOK_ARGS":      pulumi.String("--allow-root"),
+									"JUPYTER_ENABLE_LAB": pulumi.String("yes"),
+									"CHOWN_HOME":         pulumi.String("yes"),
+									"CHOWN_HOME_OPTS":    pulumi.String("-R"),
+								},
+								"container_security_context": pulumi.Map{
+									"allowPrivilegeEscalation": pulumi.Bool(true),
+									"runAsUser":                pulumi.Int(0),
+									"privileged":               pulumi.Bool(true),
+									"capabilities": pulumi.Map{
+										"add": pulumi.StringArray{pulumi.String("SYS_ADMIN")},
+									},
+								},
+							},
+						},
+						pulumi.Map{
+
+							"display_name": pulumi.String("sidecar"),
+							"slug":         pulumi.String("sidecar"),
+							"description":  pulumi.String("Run mount server as a sidecar"),
+							"kubespawner_override": pulumi.Map{
+								"image": pulumi.String(nbUserImage),
+								"environment": pulumi.Map{
+									"SIDECAR_MODE": pulumi.String("true"),
+								},
+								"extra_containers": pulumi.MapArray{
+									pulumi.Map{
+										"name":    pulumi.String("mount-server-manager"),
+										"image":   pulumi.String("pachyderm/mount-server:7d2471590000c6ac847a64a77e3f6c0687e64f01"),
+										"command": pulumi.StringArray{pulumi.String("/bin/bash"), pulumi.String("-c"), pulumi.String("mount-server")},
+										"securityContext": pulumi.Map{
+											"privileged": pulumi.Bool(true),
+											"runAsUser":  pulumi.Int(0),
+										},
+										"volumeMounts": pulumi.MapArray{
+											pulumi.Map{
+												"name":             pulumi.String("shared-pfs"),
+												"mountPath":        pulumi.String("/pfs"),
+												"mountPropagation": pulumi.String("Bidirectional"),
+											},
+										},
+									},
+								},
+							},
+						},
 					},
-					//profileList
 				},
 				//cull
 				"ingress": pulumi.Map{
@@ -330,15 +377,14 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 						"kubernetes.io/ingress.class":              pulumi.String("traefik"),
 						"traefik.ingress.kubernetes.io/router.tls": pulumi.String("true"),
 					},
-					"hosts": pulumi.StringArray{juypterURL},
+					"hosts": pulumi.StringArray{jupyterURL},
 					"tls": pulumi.MapArray{
 						pulumi.Map{
-							"hosts":      pulumi.StringArray{pulumi.String("jh-" + id + ".***REMOVED***")},
+							"hosts":      pulumi.StringArray{jupyterURL},
 							"secretName": pulumi.String("wildcard-tls"),
 						},
 					},
 				},
-				// "hub": pulumi.Map{},//Auth stuff
 				"prePuller": pulumi.Map{
 					"hook": pulumi.Map{
 						"enabled": pulumi.Bool(false),
@@ -346,7 +392,8 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 				},
 				"hub": pulumi.Map{
 					"extraConfig": pulumi.Map{
-						"podRoot": pulumi.String(fileStr),
+						//"podRoot": pulumi.String(fileStr),
+						"volume": pulumi.String(volumeStr),
 					},
 				},
 				"proxy": pulumi.Map{
@@ -369,7 +416,7 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 		ctx.Export("createdBy", pulumi.String(createdBy))
 		ctx.Export("status", pulumi.String("ready"))
 		ctx.Export("pachdip", gcpL4LoadBalancerIP)
-		ctx.Export("juypterUrl", juypterURL)
+		ctx.Export("juypterUrl", jupyterURL)
 		ctx.Export("consoleUrl", consoleUrl)
 		ctx.Export("k8sNamespace", namespace.Metadata.Elem().Name())
 		ctx.Export("bucket", bucket.Name)
