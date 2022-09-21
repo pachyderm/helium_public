@@ -60,8 +60,7 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 				MinNodeCount: pulumi.Int(0),
 			},
 			NodeConfig: &container.NodePoolNodeConfigArgs{
-				MachineType: pulumi.String("n1-standard-16"),
-				//TODO Custom ServiceAccount: nodeSA.Email,
+				MachineType: pulumi.String("n1-standard-8"),
 				OauthScopes: pulumi.StringArray{
 					pulumi.String("https://www.googleapis.com/auth/compute"),
 					pulumi.String("https://www.googleapis.com/auth/devstorage.read_write"), //TODO Change back to read-only
@@ -73,6 +72,58 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 				//},
 			},
 		}, pulumi.DependsOn([]pulumi.Resource{cluster}))
+		if err != nil {
+			return err
+		}
+
+		_, err = container.NewNodePool(ctx, id, &container.NodePoolArgs{
+			Cluster:   cluster.ID(),
+			NodeCount: pulumi.Int(0),
+			Autoscaling: &container.NodePoolAutoscalingArgs{
+				MaxNodeCount: pulumi.Int(8),
+				MinNodeCount: pulumi.Int(0),
+			},
+			NodeConfig: &container.NodePoolNodeConfigArgs{
+				MachineType: pulumi.String("n1-standard-8"),
+				GuestAccelerators: container.NodePoolNodeConfigGuestAcceleratorArray{container.NodePoolNodeConfigGuestAcceleratorArgs{
+					Count: pulumi.Int(1),
+					Type:  pulumi.String("nvidia-tesla-p100"),
+				}},
+				OauthScopes: pulumi.StringArray{
+					pulumi.String("https://www.googleapis.com/auth/compute"),
+					pulumi.String("https://www.googleapis.com/auth/devstorage.read_write"), //TODO Change back to read-only
+					pulumi.String("https://www.googleapis.com/auth/logging.write"),
+					pulumi.String("https://www.googleapis.com/auth/monitoring"),
+				},
+				//SandboxConfig: &container.NodePoolNodeConfigSandboxConfigArgs{
+				//	SandboxType: pulumi.String("gvisor"),
+				//},
+			},
+		}, pulumi.DependsOn([]pulumi.Resource{cluster}))
+		if err != nil {
+			return err
+		}
+
+		// adhoc loadtesting giant nodepool - this allows us to run
+		// 256 CPUs and 1TB of memory split across 4 nodes.
+		_, err = container.NewNodePool(ctx, "adhoc-load-test", &container.NodePoolArgs{
+			Cluster:   cluster.ID(),
+			NodeCount: pulumi.Int(0),
+			Autoscaling: &container.NodePoolAutoscalingArgs{
+				MaxNodeCount: pulumi.Int(8),
+				MinNodeCount: pulumi.Int(0),
+			},
+			NodeConfig: &container.NodePoolNodeConfigArgs{
+				MachineType: pulumi.String("n2d-standard-32"),
+				Labels:      pulumi.StringMap{"adhoc-loadtesting": pulumi.String("enabled"), "loadtest": pulumi.String("enabled")},
+				OauthScopes: pulumi.StringArray{
+					pulumi.String("https://www.googleapis.com/auth/compute"),
+					pulumi.String("https://www.googleapis.com/auth/devstorage.read_write"), //TODO Change back to read-only
+					pulumi.String("https://www.googleapis.com/auth/logging.write"),
+					pulumi.String("https://www.googleapis.com/auth/monitoring"),
+				},
+			},
+		})
 		if err != nil {
 			return err
 		}
