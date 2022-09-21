@@ -17,7 +17,9 @@ import (
 	"github.com/pachyderm/helium/api"
 	"github.com/pachyderm/helium/pulumi_backends/aws_cluster"
 	"github.com/pachyderm/helium/pulumi_backends/gcp_cluster"
+	"github.com/pachyderm/helium/pulumi_backends/gcp_cluster_only"
 	"github.com/pachyderm/helium/pulumi_backends/gcp_namespace"
+	"github.com/pachyderm/helium/pulumi_backends/gcp_namespace_only"
 	"github.com/pachyderm/helium/util"
 
 	log "github.com/sirupsen/logrus"
@@ -282,6 +284,13 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 		// TODO: remove debugging function in followup PR
 		//	gcpProjectID = "feed-dog-353420"
 		program = gcp_cluster.CreatePulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML, req.CreatedBy, cleanup, req.InfraJSONContent)
+	case "gcp_cluster_only":
+		//project = "helium-gke-clusters"
+		program = gcp_cluster_only.CreatePulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML, req.CreatedBy, cleanup, req.InfraJSONContent)
+	case "gcp_namespace_only":
+		//project = "helium-gke-clusters"
+		program = gcp_namespace_only.CreatePulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML, req.CreatedBy, cleanup, req.InfraJSONContent)
+
 	case "aws_cluster":
 		program = aws_cluster.CreatePulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML, req.CreatedBy, cleanup, req.InfraJSONContent)
 		//

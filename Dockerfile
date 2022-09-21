@@ -71,6 +71,7 @@ COPY --from=build /app/out /out
 COPY --from=build /app/volume.py /volume.py
 COPY --from=build /app/root.py /root.py
 COPY --from=build /app/workspace-wildcard.yaml /workspace-wildcard.yaml
+COPY --from=build /app/gpu-daemonset.yaml /gpu-daemonset.yaml
 COPY --from=build /app/templates /templates
 # uncomment this for local dev
 # COPY --from=build /app/key.json /var/secrets/google/key.json
