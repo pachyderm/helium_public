@@ -24,6 +24,7 @@ type Spec struct {
 	HelmVersion      string `schema:"helmVersion"`
 	CleanupOnFail    string `schema:"cleanupOnFail"`
 	Backend          string `schema:"backend"`
+	ClusterStack     string `schema:"clusterStack"`
 	// This should be an actual file upload
 	ValuesYAML string //schema:"valuesYaml" This field isn't handled by schema directly
 	// This should be an actual file upload

@@ -39,10 +39,12 @@ var (
 	auth0Domain       = "https://***REMOVED***.auth0.com/"
 )
 
-func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVersion, notebooksVersion, valuesYaml, createdBy string, cleanup2 bool, infraJson *api.InfraJson) pulumi.RunFunc {
+func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVersion, notebooksVersion, valuesYaml, createdBy, clusterStack string, cleanup2 bool, infraJson *api.InfraJson) pulumi.RunFunc {
 	return func(ctx *pulumi.Context) error {
-
-		slug := "pachyderm/helium/test-cluster-06"
+		slug := "pachyderm/helium/default_cluster"
+		if clusterStack != "" {
+			slug = clusterStack
+		}
 		stackRef, _ := pulumi.NewStackReference(ctx, slug, nil)
 
 		kubeConfig := stackRef.GetOutput(pulumi.String("kubeconfig"))
