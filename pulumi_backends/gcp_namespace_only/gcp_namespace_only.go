@@ -41,7 +41,7 @@ var (
 
 func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVersion, notebooksVersion, valuesYaml, createdBy, clusterStack string, cleanup2 bool, infraJson *api.InfraJson) pulumi.RunFunc {
 	return func(ctx *pulumi.Context) error {
-		slug := "pachyderm/helium/default_cluster"
+		slug := "pachyderm/helium/default-cluster"
 		if clusterStack != "" {
 			slug = clusterStack
 		}
