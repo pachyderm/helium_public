@@ -67,10 +67,10 @@ func RunDeletionController(ctx context.Context, br DeletionController) error {
 	if err != nil {
 		return err
 	}
-	var sandboxPresent bool
+	var nightlyPresent bool
 	for _, v := range id.IDs {
-		if v == "public-sandbox" {
-			sandboxPresent = true
+		if v == "nightly-cluster" {
+			nightlyPresent = true
 		}
 		b, err := br.IsExpired(v)
 		if err != nil {
@@ -93,11 +93,10 @@ func RunDeletionController(ctx context.Context, br DeletionController) error {
 			}
 			// TODO: This is a bit of a hack for feeddog. Will cause a circular import if anything in pulumi_backends needs this package
 			time.Sleep(time.Minute * 5)
-			if v == "public-sandbox" {
+			if v == "nightly-cluster" {
 				spec := &api.Spec{
-					Name:           "public-sandbox",
-					Backend:        "gcp_cluster",
-					ConsoleVersion: "2.3.2-2",
+					Name:    "nightly-cluster",
+					Backend: "gcp_cluster_only",
 				}
 				gnp := &pulumi_backends.Runner{}
 				_, err = gnp.Create(spec)
@@ -107,11 +106,10 @@ func RunDeletionController(ctx context.Context, br DeletionController) error {
 			}
 		}
 	}
-	if !sandboxPresent {
+	if !nightlyPresent {
 		spec := &api.Spec{
-			Name:           "public-sandbox",
-			Backend:        "gcp_cluster",
-			ConsoleVersion: "2.3.2-2",
+			Name:    "nightly-cluster",
+			Backend: "gcp_cluster_only",
 		}
 		gnp := &pulumi_backends.Runner{}
 		_, err = gnp.Create(spec)
