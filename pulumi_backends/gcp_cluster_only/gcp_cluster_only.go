@@ -76,7 +76,7 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 			return err
 		}
 
-		_, err = container.NewNodePool(ctx, id, &container.NodePoolArgs{
+		_, err = container.NewNodePool(ctx, "gpu", &container.NodePoolArgs{
 			Cluster:   cluster.ID(),
 			NodeCount: pulumi.Int(0),
 			Autoscaling: &container.NodePoolAutoscalingArgs{
