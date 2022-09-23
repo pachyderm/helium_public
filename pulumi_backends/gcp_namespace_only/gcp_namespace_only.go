@@ -62,6 +62,7 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 		pachdUrl := pulumi.String(id + "-pachd" + "." + urlSuffix)
 		url := pulumi.String(id + "." + urlSuffix)
 		jupyterURL := pulumi.String("jh-" + id + "." + urlSuffix)
+		consoleUrl := url
 
 		workspaceManagedZone, err := dns.GetManagedZone(ctx, "workspace", pulumi.ID(pulumi.String(WorkspaceManagedZoneGcpId)), nil)
 		if err != nil {
@@ -95,16 +96,16 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 			return err
 		}
 
-		_, err = dns.NewRecordSet(ctx, "console-record-set", &dns.RecordSetArgs{
-			Name:        url + ".",
-			Type:        pulumi.String("A"),
-			Ttl:         pulumi.Int(300),
-			ManagedZone: workspaceManagedZone.Name,
-			Rrdatas:     pulumi.StringArray{pulumi.Sprintf("%s", haproxyExternalOutput)},
-		})
-		if err != nil {
-			return err
-		}
+		//_, err = dns.NewRecordSet(ctx, "console-record-set", &dns.RecordSetArgs{
+		//	Name:        url + ".",
+		//	Type:        pulumi.String("A"),
+		//	Ttl:         pulumi.Int(300),
+		//	ManagedZone: workspaceManagedZone.Name,
+		//	Rrdatas:     pulumi.StringArray{pulumi.Sprintf("%s", haproxyExternalOutput)},
+		//})
+		//if err != nil {
+		//	return err
+		//}
 
 		bucket, err := storage.NewBucket(ctx, "pach-bucket", &storage.BucketArgs{
 			Location:     pulumi.String("US"),
@@ -130,8 +131,6 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 		if err != nil {
 			return err
 		}
-
-		consoleUrl := pulumi.String(id + ".***REMOVED***")
 
 		type JSONoidc struct {
 			Issuer       string `json:issuer`
@@ -182,12 +181,6 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 			//		"allClusterUsers": pulumi.StringArray{pulumi.String("clusterAdmin")},
 			//	},
 			//},
-			"externalService": pulumi.Map{
-				"enabled": pulumi.Bool(true),
-				//						"loadBalancerIP": ipAddress,
-				"apiGRPCPort":   pulumi.Int(30651), //Dynamic Value
-				"s3GatewayPort": pulumi.Int(30601), //Dynamic Value
-			},
 			"oauthClientSecret":    pulumi.String("***REMOVED***"),
 			"rootToken":            pulumi.String("***REMOVED***"),
 			"enterpriseSecret":     pulumi.String("***REMOVED***"),
@@ -215,12 +208,6 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 				//		"allClusterUsers": pulumi.StringArray{pulumi.String("clusterAdmin")},
 				//	},
 				//},
-				"externalService": pulumi.Map{
-					"enabled": pulumi.Bool(true),
-					//						"loadBalancerIP": ipAddress,
-					"apiGRPCPort":   pulumi.Int(30651), //Dynamic Value
-					"s3GatewayPort": pulumi.Int(30601), //Dynamic Value
-				},
 				"oauthClientSecret":    pulumi.String("***REMOVED***"),
 				"rootToken":            pulumi.String("***REMOVED***"),
 				"enterpriseSecret":     pulumi.String("***REMOVED***"),
@@ -262,19 +249,18 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 					},
 				},
 				"console": consoleValues,
-				"ingress": pulumi.Map{
-					"annotations": pulumi.Map{
-						"kubernetes.io/ingress.class": pulumi.String("haproxy"),
-						//	"traefik.ingress.kubernetes.io/router.tls": pulumi.String("true"),
-					},
+				"pachd":   pachdValues,
+				"proxy": pulumi.Map{
 					"enabled": pulumi.Bool(true),
 					"host":    consoleUrl,
 					"tls": pulumi.Map{
 						"enabled":    pulumi.Bool(true),
 						"secretName": pulumi.String("workspace-wildcard"), // Dynamic Value
 					},
+					"service": pulumi.Map{
+						"type": pulumi.String("LoadBalancer"),
+					},
 				},
-				"pachd": pachdValues,
 				"oidc": pulumi.Map{
 					"mockIDP": pulumi.Bool(false),
 					"upstreamIDPs": pulumi.Array{
@@ -294,7 +280,7 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 
 		gcpL4LoadBalancerIP := pulumi.All(corePach.Status.Namespace()).ApplyT(func(args []interface{}) (pulumi.StringOutput, error) {
 			namespace := args[0].(*string)
-			svc, err := corev1.GetService(ctx, "svc", pulumi.ID(fmt.Sprintf("%s/pachd-lb", *namespace)), nil, pulumi.Timeouts(&pulumi.CustomTimeouts{Create: "10m"}), pulumi.Provider(k8sProvider))
+			svc, err := corev1.GetService(ctx, "svc", pulumi.ID(fmt.Sprintf("%s/pachyderm-proxy", *namespace)), nil, pulumi.Timeouts(&pulumi.CustomTimeouts{Create: "10m"}), pulumi.Provider(k8sProvider))
 			if err != nil {
 				log.Errorf("error getting loadbalancer IP: %v", err)
 			}
@@ -302,7 +288,7 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 		}).(pulumi.StringOutput)
 
 		_, err = dns.NewRecordSet(ctx, "frontendRecordSet", &dns.RecordSetArgs{
-			Name: pachdUrl + ".",
+			Name: consoleUrl + ".",
 			// TODO: This will be a CNAME for AWS?
 			Type:        pulumi.String("A"),
 			Ttl:         pulumi.Int(300),
