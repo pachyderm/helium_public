@@ -37,6 +37,7 @@ var (
 	clientID          = os.Getenv("HELIUM_CLIENT_ID")
 	expirationNumDays = os.Getenv("HELIUM_DEFAULT_EXPIRATION_DAYS")
 	auth0Domain       = "https://***REMOVED***.auth0.com/"
+	auth0SubDomain    = "***REMOVED***"
 )
 
 func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVersion, notebooksVersion, valuesYaml, createdBy, clusterStack string, cleanup2 bool, infraJson *api.InfraJson) pulumi.RunFunc {
@@ -422,6 +423,21 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 					},
 				},
 				"hub": pulumi.Map{
+					"config": pulumi.Map{
+						"Auth0OAuthenticator": pulumi.Map{
+							"client_id":          pulumi.String(clientID),
+							"client_secret":      pulumi.String(clientSecret),
+							"oauth_callback_url": pulumi.String("https://" + jupyterURL + "/hub/oauth_callback"),
+							"scope":              pulumi.StringArray{pulumi.String("openid"), pulumi.String("email")},
+							"auth0_subdomain":    pulumi.String(auth0SubDomain),
+						},
+						"Authenticator": pulumi.Map{
+							"auto_login": pulumi.Bool(true),
+						},
+						"JupyterHub": pulumi.Map{
+							"authenticator_class": pulumi.String("auth0"),
+						},
+					},
 					"extraConfig": pulumi.Map{
 						//"podRoot": pulumi.String(fileStr),
 						"volume": pulumi.String(volumeStr),
