@@ -59,7 +59,7 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 		}
 
 		urlSuffix := "***REMOVED***"
-		pachdUrl := pulumi.String(id + "-pachd" + "." + urlSuffix)
+		//pachdUrl := pulumi.String(id + "-pachd" + "." + urlSuffix)
 		url := pulumi.String(id + "." + urlSuffix)
 		jupyterURL := pulumi.String("jh-" + id + "." + urlSuffix)
 		consoleUrl := url
@@ -456,6 +456,9 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 			return err
 		}
 
+		pachdAddress := fmt.Sprintf("%v://%v:%v", "grpcs", url, "443")
+		pachdConnectionString := fmt.Sprintf("echo '{\"pachd_address\": \"%v\", \"source\": 2}' | tr -d \\ | pachctl config set context %v --overwrite && pachctl config set active-context %v", pachdAddress, namespace.Metadata.Elem().Name(), namespace.Metadata.Elem().Name())
+
 		ctx.Export("createdBy", pulumi.String(createdBy))
 		ctx.Export("status", pulumi.String("ready"))
 		ctx.Export("pachdip", gcpL4LoadBalancerIP)
@@ -467,7 +470,9 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 		ctx.Export("k8sConnection", pulumi.Sprintf("gcloud container clusters get-credentials %s --zone us-east1-b --project ***REMOVED***", kubeName))
 		ctx.Export("backend", pulumi.String(BackendName))
 		ctx.Export("pachd-lb-ip", gcpL4LoadBalancerIP)
-		ctx.Export("pachd-lb-url", pachdUrl)
+		ctx.Export("pachd-lb-url", url)
+		ctx.Export("pachd-address", pulumi.String(pachdAddress))
+		ctx.Export("pachd-connection-string", pulumi.String(pachdConnectionString))
 
 		return nil
 	}
