@@ -94,17 +94,6 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 			return err
 		}
 
-		//_, err = dns.NewRecordSet(ctx, "console-record-set", &dns.RecordSetArgs{
-		//	Name:        url + ".",
-		//	Type:        pulumi.String("A"),
-		//	Ttl:         pulumi.Int(300),
-		//	ManagedZone: workspaceManagedZone.Name,
-		//	Rrdatas:     pulumi.StringArray{pulumi.Sprintf("%s", haproxyExternalOutput)},
-		//})
-		//if err != nil {
-		//	return err
-		//}
-
 		bucket, err := storage.NewBucket(ctx, "pach-bucket", &storage.BucketArgs{
 			Location:     pulumi.String("US"),
 			ForceDestroy: pulumi.Bool(true),
