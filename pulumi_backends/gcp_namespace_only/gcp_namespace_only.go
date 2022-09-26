@@ -59,7 +59,6 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 		}
 
 		urlSuffix := "***REMOVED***"
-		pachdUrl := pulumi.String(id + "-pachd" + "." + urlSuffix)
 		url := pulumi.String(id + "." + urlSuffix)
 		jupyterURL := pulumi.String("jh-" + id + "." + urlSuffix)
 
@@ -95,17 +94,6 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 			return err
 		}
 
-		_, err = dns.NewRecordSet(ctx, "console-record-set", &dns.RecordSetArgs{
-			Name:        url + ".",
-			Type:        pulumi.String("A"),
-			Ttl:         pulumi.Int(300),
-			ManagedZone: workspaceManagedZone.Name,
-			Rrdatas:     pulumi.StringArray{pulumi.Sprintf("%s", haproxyExternalOutput)},
-		})
-		if err != nil {
-			return err
-		}
-
 		bucket, err := storage.NewBucket(ctx, "pach-bucket", &storage.BucketArgs{
 			Location:     pulumi.String("US"),
 			ForceDestroy: pulumi.Bool(true),
@@ -130,8 +118,8 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 		if err != nil {
 			return err
 		}
-
-		consoleUrl := pulumi.String(id + ".***REMOVED***")
+		consoleRedirectURI := fmt.Sprintf("https://%v/dex/callback", url)
+		oicdRedirectURI := fmt.Sprintf("https://%v/dex", url)
 
 		type JSONoidc struct {
 			Issuer       string `json:issuer`
@@ -143,7 +131,7 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 			Issuer:       auth0Domain,
 			ClientID:     clientID,
 			ClientSecret: clientSecret,
-			RedirectURI:  fmt.Sprintf("https://%v/dex/callback", consoleUrl),
+			RedirectURI:  consoleRedirectURI,
 		}
 
 		jsonOidcBlob, err := json.Marshal(oidcInfo)
@@ -182,12 +170,6 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 			//		"allClusterUsers": pulumi.StringArray{pulumi.String("clusterAdmin")},
 			//	},
 			//},
-			"externalService": pulumi.Map{
-				"enabled": pulumi.Bool(true),
-				//						"loadBalancerIP": ipAddress,
-				"apiGRPCPort":   pulumi.Int(30651), //Dynamic Value
-				"s3GatewayPort": pulumi.Int(30601), //Dynamic Value
-			},
 			"oauthClientSecret":    pulumi.String("***REMOVED***"),
 			"rootToken":            pulumi.String("***REMOVED***"),
 			"enterpriseSecret":     pulumi.String("***REMOVED***"),
@@ -215,12 +197,6 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 				//		"allClusterUsers": pulumi.StringArray{pulumi.String("clusterAdmin")},
 				//	},
 				//},
-				"externalService": pulumi.Map{
-					"enabled": pulumi.Bool(true),
-					//						"loadBalancerIP": ipAddress,
-					"apiGRPCPort":   pulumi.Int(30651), //Dynamic Value
-					"s3GatewayPort": pulumi.Int(30601), //Dynamic Value
-				},
 				"oauthClientSecret":    pulumi.String("***REMOVED***"),
 				"rootToken":            pulumi.String("***REMOVED***"),
 				"enterpriseSecret":     pulumi.String("***REMOVED***"),
@@ -244,15 +220,17 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 		corePach, err := helm.NewRelease(ctx, "pach-release", &helm.ReleaseArgs{
 			Atomic:        pulumi.Bool(cleanup2),
 			CleanupOnFail: pulumi.Bool(cleanup2),
-			Timeout:       pulumi.Int(900),
-			Namespace:     namespace.Metadata.Elem().Name(),
+			Timeout:       pulumi.Int(600),
+			Namespace:     pulumi.String(id),
+			//FetchArgs: helm.FetchArgs{
+			//	Repo: pulumi.String("https://helm.***REMOVED***"),
+			//},
 			RepositoryOpts: helm.RepositoryOptsArgs{
 				Repo: pulumi.String("https://helm.***REMOVED***"), //TODO Use Chart files in Repo
 			},
 			Version:        pulumi.String(helmChartVersion),
 			Chart:          pulumi.String("pachyderm"),
-			ValueYamlFiles: pulumi.AssetOrArchiveArray(array), // pulumi.NewFileAsset("./metrics.yml"),
-			//
+			ValueYamlFiles: pulumi.AssetOrArchiveArray(array),
 			Values: pulumi.Map{
 				"deployTarget": pulumi.String("GOOGLE"),
 				"global": pulumi.Map{
@@ -262,21 +240,21 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 					},
 				},
 				"console": consoleValues,
-				"ingress": pulumi.Map{
-					"annotations": pulumi.Map{
-						"kubernetes.io/ingress.class": pulumi.String("haproxy"),
-						//	"traefik.ingress.kubernetes.io/router.tls": pulumi.String("true"),
-					},
+				"pachd":   pachdValues,
+				"proxy": pulumi.Map{
 					"enabled": pulumi.Bool(true),
-					"host":    consoleUrl,
+					"host":    url,
 					"tls": pulumi.Map{
 						"enabled":    pulumi.Bool(true),
 						"secretName": pulumi.String("workspace-wildcard"), // Dynamic Value
 					},
+					"service": pulumi.Map{
+						"type": pulumi.String("LoadBalancer"),
+					},
 				},
-				"pachd": pachdValues,
 				"oidc": pulumi.Map{
-					"mockIDP": pulumi.Bool(false),
+					"issuerURI": pulumi.String(oicdRedirectURI),
+					"mockIDP":   pulumi.Bool(false),
 					"upstreamIDPs": pulumi.Array{
 						pulumi.Map{
 							"id":         pulumi.String("auth0"),
@@ -292,9 +270,14 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 			return err
 		}
 
+		//gcpL4LoadBalancerIP := corePach.GetResource("v1/Service", "pachyderm-proxy", id).ApplyT(func(r interface{}) (pulumi.StringOutput, error) {
+		//	svc := r.(*corev1.Service)
+		//	return svc.Status.LoadBalancer().Ingress().Index(pulumi.Int(0)).Ip().Elem(), nil
+		//}).(pulumi.StringOutput)
+
 		gcpL4LoadBalancerIP := pulumi.All(corePach.Status.Namespace()).ApplyT(func(args []interface{}) (pulumi.StringOutput, error) {
 			namespace := args[0].(*string)
-			svc, err := corev1.GetService(ctx, "svc", pulumi.ID(fmt.Sprintf("%s/pachd-lb", *namespace)), nil, pulumi.Timeouts(&pulumi.CustomTimeouts{Create: "10m"}), pulumi.Provider(k8sProvider))
+			svc, err := corev1.GetService(ctx, "svc", pulumi.ID(fmt.Sprintf("%s/pachyderm-proxy", *namespace)), nil, pulumi.Timeouts(&pulumi.CustomTimeouts{Create: "10m"}), pulumi.Provider(k8sProvider))
 			if err != nil {
 				log.Errorf("error getting loadbalancer IP: %v", err)
 			}
@@ -302,7 +285,7 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 		}).(pulumi.StringOutput)
 
 		_, err = dns.NewRecordSet(ctx, "frontendRecordSet", &dns.RecordSetArgs{
-			Name: pachdUrl + ".",
+			Name: url + ".",
 			// TODO: This will be a CNAME for AWS?
 			Type:        pulumi.String("A"),
 			Ttl:         pulumi.Int(300),
@@ -460,18 +443,24 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 			return err
 		}
 
+		pachdAddress := fmt.Sprintf("%v://%v:%v", "grpcs", url, "443")
+		pachdConnectionString := fmt.Sprintf("echo '{\"pachd_address\": \"%v\"}' | pachctl config set context %v --overwrite && pachctl config set active-context %v", pachdAddress, id, id)
+
 		ctx.Export("createdBy", pulumi.String(createdBy))
 		ctx.Export("status", pulumi.String("ready"))
 		ctx.Export("pachdip", gcpL4LoadBalancerIP)
 		ctx.Export("juypterUrl", jupyterURL)
-		ctx.Export("consoleUrl", consoleUrl)
+		ctx.Export("consoleUrl", url)
 		ctx.Export("k8sNamespace", namespace.Metadata.Elem().Name())
 		ctx.Export("bucket", bucket.Name)
 		ctx.Export("helium-expiry", pulumi.String(expiry))
 		ctx.Export("k8sConnection", pulumi.Sprintf("gcloud container clusters get-credentials %s --zone us-east1-b --project ***REMOVED***", kubeName))
 		ctx.Export("backend", pulumi.String(BackendName))
+		// TODO: look into and cleanup pachd-lb and pachdip
 		ctx.Export("pachd-lb-ip", gcpL4LoadBalancerIP)
-		ctx.Export("pachd-lb-url", pachdUrl)
+		ctx.Export("pachd-lb-url", url)
+		ctx.Export("pachd-address", pulumi.String(pachdAddress))
+		ctx.Export("pachd-connection-string", pulumi.String(pachdConnectionString))
 
 		return nil
 	}
