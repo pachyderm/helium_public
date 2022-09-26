@@ -228,19 +228,20 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 		}
 		array := []pulumi.AssetOrArchiveInput{}
 		array = append(array, pulumi.AssetOrArchiveInput(pulumi.NewFileAsset(valuesYaml)))
-		corePach, err := helm.NewChart(ctx, id, helm.ChartArgs{
-			//	Atomic:        pulumi.Bool(cleanup2),
-			//	CleanupOnFail: pulumi.Bool(cleanup2),
-			//	Timeout:       pulumi.Int(900),
-			Namespace: pulumi.String(id),
-			FetchArgs: helm.FetchArgs{
-				Repo: pulumi.String("https://helm.***REMOVED***"),
+		corePach, err := helm.NewRelease(ctx, "pach-release", &helm.ReleaseArgs{
+			Atomic:        pulumi.Bool(cleanup2),
+			CleanupOnFail: pulumi.Bool(cleanup2),
+			Timeout:       pulumi.Int(600),
+			Namespace:     pulumi.String(id),
+			//FetchArgs: helm.FetchArgs{
+			//	Repo: pulumi.String("https://helm.***REMOVED***"),
+			//},
+			RepositoryOpts: helm.RepositoryOptsArgs{
+				Repo: pulumi.String("https://helm.***REMOVED***"), //TODO Use Chart files in Repo
 			},
-			//	RepositoryOpts: helm.RepositoryOptsArgs{
-			//		Repo: pulumi.String("https://helm.***REMOVED***"), //TODO Use Chart files in Repo
-			//	},
-			Version: pulumi.String(helmChartVersion),
-			Chart:   pulumi.String("pachyderm"),
+			Version:        pulumi.String(helmChartVersion),
+			Chart:          pulumi.String("pachyderm"),
+			ValueYamlFiles: pulumi.AssetOrArchiveArray(array),
 			Values: pulumi.Map{
 				"deployTarget": pulumi.String("GOOGLE"),
 				"global": pulumi.Map{
@@ -280,19 +281,19 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 			return err
 		}
 
-		gcpL4LoadBalancerIP := corePach.GetResource("v1/Service", "pachyderm-proxy", id).ApplyT(func(r interface{}) (pulumi.StringOutput, error) {
-			svc := r.(*corev1.Service)
-			return svc.Status.LoadBalancer().Ingress().Index(pulumi.Int(0)).Ip().Elem(), nil
-		}).(pulumi.StringOutput)
-
-		//gcpL4LoadBalancerIP := pulumi.All(corePach.Status.Namespace()).ApplyT(func(args []interface{}) (pulumi.StringOutput, error) {
-		//	namespace := args[0].(*string)
-		//	svc, err := corev1.GetService(ctx, "svc", pulumi.ID(fmt.Sprintf("%s/pachyderm-proxy", *namespace)), nil, pulumi.Timeouts(&pulumi.CustomTimeouts{Create: "10m"}), pulumi.Provider(k8sProvider))
-		//	if err != nil {
-		//		log.Errorf("error getting loadbalancer IP: %v", err)
-		//	}
+		//gcpL4LoadBalancerIP := corePach.GetResource("v1/Service", "pachyderm-proxy", id).ApplyT(func(r interface{}) (pulumi.StringOutput, error) {
+		//	svc := r.(*corev1.Service)
 		//	return svc.Status.LoadBalancer().Ingress().Index(pulumi.Int(0)).Ip().Elem(), nil
 		//}).(pulumi.StringOutput)
+
+		gcpL4LoadBalancerIP := pulumi.All(corePach.Status.Namespace()).ApplyT(func(args []interface{}) (pulumi.StringOutput, error) {
+			namespace := args[0].(*string)
+			svc, err := corev1.GetService(ctx, "svc", pulumi.ID(fmt.Sprintf("%s/pachyderm-proxy", *namespace)), nil, pulumi.Timeouts(&pulumi.CustomTimeouts{Create: "10m"}), pulumi.Provider(k8sProvider))
+			if err != nil {
+				log.Errorf("error getting loadbalancer IP: %v", err)
+			}
+			return svc.Status.LoadBalancer().Ingress().Index(pulumi.Int(0)).Ip().Elem(), nil
+		}).(pulumi.StringOutput)
 
 		_, err = dns.NewRecordSet(ctx, "frontendRecordSet", &dns.RecordSetArgs{
 			Name: url + ".",
