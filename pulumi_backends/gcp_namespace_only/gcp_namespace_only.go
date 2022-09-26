@@ -444,7 +444,7 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 		}
 
 		pachdAddress := fmt.Sprintf("%v://%v:%v", "grpcs", url, "443")
-		pachdConnectionString := fmt.Sprintf("echo '{\"pachd_address\": \"%v\", \"source\": 2}' | tr -d \\ | pachctl config set context %v --overwrite && pachctl config set active-context %v", pachdAddress, namespace.Metadata.Elem().Name(), namespace.Metadata.Elem().Name())
+		pachdConnectionString := fmt.Sprintf("echo '{\"pachd_address\": \"%v\"}' | pachctl config set context %v --overwrite && pachctl config set active-context %v", pachdAddress, id, id)
 
 		ctx.Export("createdBy", pulumi.String(createdBy))
 		ctx.Export("status", pulumi.String("ready"))
