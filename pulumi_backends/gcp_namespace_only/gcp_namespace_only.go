@@ -59,10 +59,8 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 		}
 
 		urlSuffix := "***REMOVED***"
-		//pachdUrl := pulumi.String(id + "-pachd" + "." + urlSuffix)
 		url := pulumi.String(id + "." + urlSuffix)
 		jupyterURL := pulumi.String("jh-" + id + "." + urlSuffix)
-		consoleUrl := url
 
 		workspaceManagedZone, err := dns.GetManagedZone(ctx, "workspace", pulumi.ID(pulumi.String(WorkspaceManagedZoneGcpId)), nil)
 		if err != nil {
@@ -131,9 +129,8 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 		if err != nil {
 			return err
 		}
-		// consoleRedirectURI := fmt.Sprintf("https://%v/oauth/callback/?inline=true", consoleUrl)
-		consoleRedirectURI := fmt.Sprintf("https://%v/dex/callback", consoleUrl)
-		oicdRedirectURI := fmt.Sprintf("https://%v/dex", consoleUrl)
+		consoleRedirectURI := fmt.Sprintf("https://%v/dex/callback", url)
+		oicdRedirectURI := fmt.Sprintf("https://%v/dex", url)
 
 		type JSONoidc struct {
 			Issuer       string `json:issuer`
@@ -256,7 +253,7 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 				"pachd":   pachdValues,
 				"proxy": pulumi.Map{
 					"enabled": pulumi.Bool(true),
-					"host":    consoleUrl,
+					"host":    url,
 					"tls": pulumi.Map{
 						"enabled":    pulumi.Bool(true),
 						"secretName": pulumi.String("workspace-wildcard"), // Dynamic Value
@@ -298,7 +295,7 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 		//}).(pulumi.StringOutput)
 
 		_, err = dns.NewRecordSet(ctx, "frontendRecordSet", &dns.RecordSetArgs{
-			Name: consoleUrl + ".",
+			Name: url + ".",
 			// TODO: This will be a CNAME for AWS?
 			Type:        pulumi.String("A"),
 			Ttl:         pulumi.Int(300),
@@ -463,12 +460,13 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 		ctx.Export("status", pulumi.String("ready"))
 		ctx.Export("pachdip", gcpL4LoadBalancerIP)
 		ctx.Export("juypterUrl", jupyterURL)
-		ctx.Export("consoleUrl", consoleUrl)
+		ctx.Export("consoleUrl", url)
 		ctx.Export("k8sNamespace", namespace.Metadata.Elem().Name())
 		ctx.Export("bucket", bucket.Name)
 		ctx.Export("helium-expiry", pulumi.String(expiry))
 		ctx.Export("k8sConnection", pulumi.Sprintf("gcloud container clusters get-credentials %s --zone us-east1-b --project ***REMOVED***", kubeName))
 		ctx.Export("backend", pulumi.String(BackendName))
+		// TODO: look into and cleanup pachd-lb and pachdip
 		ctx.Export("pachd-lb-ip", gcpL4LoadBalancerIP)
 		ctx.Export("pachd-lb-url", url)
 		ctx.Export("pachd-address", pulumi.String(pachdAddress))
