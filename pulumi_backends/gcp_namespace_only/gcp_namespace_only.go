@@ -194,19 +194,19 @@ pachd:
 
 		out := map[string]any{}
 		if err := yaml.Unmarshal([]byte(defaultValues), &out); err != nil {
-			log.Fatal(err)
+			return err
 		}
 
 		in := map[string]any{}
 		if err := yaml.Unmarshal([]byte(heliumValues), &in); err != nil {
-			log.Fatal(err)
+			return err
 		}
 
 		intermediate := util.MergeMaps(out, in)
 
 		user := map[string]any{}
 		if err := yaml.Unmarshal([]byte(valuesYaml), &user); err != nil {
-			log.Fatal(err)
+			return err
 		}
 
 		final := util.MergeMaps(intermediate, user)
