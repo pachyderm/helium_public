@@ -8,6 +8,7 @@ import (
 	"io"
 	rando "math/rand"
 
+	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -34,6 +35,52 @@ func NewLogWriter(l *log.Entry) io.Writer {
 
 func Name() string {
 	return generateName() + "-" + randomString(randomStringLength)
+}
+
+func ToPulumi(v any) pulumi.Input {
+	var m = make(pulumi.Map)
+	switch v := v.(type) {
+	case string:
+		return pulumi.String(v)
+	case bool:
+		return pulumi.Bool(v)
+	case int:
+		return pulumi.Int(v)
+	case float64:
+		return pulumi.Int(v)
+	case map[string]any:
+		for k, vv := range v {
+			m[k] = ToPulumi(vv)
+		}
+	case []any:
+		var s pulumi.MapArray
+		for _, vv := range v {
+			s = append(s, ToPulumi(vv).(pulumi.MapInput))
+		}
+		return s
+	default:
+		log.Errorf("Type i=%s not included in pulumi type switch statement", v)
+	}
+	return m
+}
+
+func MergeMaps(src, dest map[string]any) map[string]any {
+	out := make(map[string]any, len(src))
+	for k, v := range src {
+		out[k] = v
+	}
+	for k, v := range dest {
+		if v, ok := v.(map[string]any); ok {
+			if destv, ok := out[k]; ok {
+				if destv, ok := destv.(map[string]any); ok {
+					out[k] = MergeMaps(destv, v)
+					continue
+				}
+			}
+		}
+		out[k] = v
+	}
+	return out
 }
 
 func randomString(n int) string {
