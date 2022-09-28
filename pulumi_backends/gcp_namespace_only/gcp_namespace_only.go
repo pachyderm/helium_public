@@ -18,7 +18,6 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"gopkg.in/yaml.v3"
-	//"github.com/ghodss/yaml"
 
 	"github.com/pachyderm/helium/api"
 	"github.com/pachyderm/helium/util"
@@ -42,10 +41,6 @@ var (
 	auth0Domain       = "https://***REMOVED***.auth0.com/"
 	auth0SubDomain    = "***REMOVED***"
 )
-
-//func generatePachValues(id, consoleVersion, pachdVersion, valuesYaml string) pulumi.Map {
-//
-//}
 
 func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVersion, notebooksVersion, valuesYaml, createdBy, clusterStack string, cleanup2 bool, infraJson *api.InfraJson) pulumi.RunFunc {
 	return func(ctx *pulumi.Context) error {
