@@ -14,6 +14,8 @@ require (
 	github.com/stretchr/testify v1.7.0
 )
 
+require github.com/ghodss/yaml v1.0.0 // indirect
+
 require (
 	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/cheggaaa/pb v1.0.18 // indirect

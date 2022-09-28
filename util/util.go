@@ -37,17 +37,26 @@ func Name() string {
 	return generateName() + "-" + randomString(randomStringLength)
 }
 
+// TODO: Write tests
 func ToPulumi(v any) pulumi.Input {
 	var m = make(pulumi.Map)
 	switch v := v.(type) {
 	case string:
 		return pulumi.String(v)
+	case *string:
+		return pulumi.String(*v)
 	case bool:
 		return pulumi.Bool(v)
+	case *bool:
+		return pulumi.Bool(*v)
 	case int:
 		return pulumi.Int(v)
+	case *int:
+		return pulumi.Int(*v)
 	case float64:
 		return pulumi.Int(v)
+	case *float64:
+		return pulumi.Int(*v)
 	case map[string]any:
 		for k, vv := range v {
 			m[k] = ToPulumi(vv)
@@ -58,12 +67,16 @@ func ToPulumi(v any) pulumi.Input {
 			s = append(s, ToPulumi(vv).(pulumi.MapInput))
 		}
 		return s
+	case nil:
+		log.Info("Type is nil")
+		return nil
 	default:
-		log.Errorf("Type i=%s not included in pulumi type switch statement", v)
+		log.Errorf("Type not handled i=%s", v)
 	}
 	return m
 }
 
+// TODO: Write tests
 func MergeMaps(src, dest map[string]any) map[string]any {
 	out := make(map[string]any, len(src))
 	for k, v := range src {
