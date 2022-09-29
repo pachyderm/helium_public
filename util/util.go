@@ -37,26 +37,30 @@ func Name() string {
 	return generateName() + "-" + randomString(randomStringLength)
 }
 
-// TODO: Write tests
+// TODO: Write tests, especially for handling pointers
 func ToPulumi(v any) pulumi.Input {
 	var m = make(pulumi.Map)
+	if v == nil {
+		log.Info("Type is nil")
+		return nil
+	}
 	switch v := v.(type) {
 	case string:
 		return pulumi.String(v)
 	case *string:
-		return pulumi.String(*v)
+		return pulumi.StringPtr(*v)
 	case bool:
 		return pulumi.Bool(v)
 	case *bool:
-		return pulumi.Bool(*v)
+		return pulumi.BoolPtr(*v)
 	case int:
 		return pulumi.Int(v)
 	case *int:
-		return pulumi.Int(*v)
+		return pulumi.IntPtr(*v)
 	case float64:
-		return pulumi.Int(v)
+		return pulumi.Float64(v)
 	case *float64:
-		return pulumi.Int(*v)
+		return pulumi.Float64Ptr(*v)
 	case map[string]any:
 		for k, vv := range v {
 			m[k] = ToPulumi(vv)
@@ -67,9 +71,6 @@ func ToPulumi(v any) pulumi.Input {
 			s = append(s, ToPulumi(vv).(pulumi.MapInput))
 		}
 		return s
-	case nil:
-		log.Info("Type is nil")
-		return nil
 	default:
 		log.Errorf("Type not handled i=%s", v)
 	}
