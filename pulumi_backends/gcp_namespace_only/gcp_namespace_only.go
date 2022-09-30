@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	"os"
 
-	//"github.com/davecgh/go-spew/spew"
 	"github.com/pulumi/pulumi-gcp/sdk/v6/go/gcp/compute"
 	"github.com/pulumi/pulumi-gcp/sdk/v6/go/gcp/container"
 	"github.com/pulumi/pulumi-gcp/sdk/v6/go/gcp/dns"
@@ -212,7 +211,10 @@ pachd:
 		final := util.MergeMaps(intermediate, user)
 
 		values := util.ToPulumi(final)
-		//spew.Dump(values)
+
+		// DEBUG
+		// import "github.com/davecgh/go-spew/spew"
+		// spew.Dump(values)
 
 		corePach, err := helm.NewChart(ctx, id, helm.ChartArgs{
 			Namespace: pulumi.String(id),
