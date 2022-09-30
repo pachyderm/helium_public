@@ -347,6 +347,68 @@ func CreatePulumiProgram(id,
 		//managedZone := urlSuffix + "."
 		//url := pulumi.String(id + "." + urlSuffix)
 
+		pachdValues := pulumi.Map{
+			"storage": pulumi.Map{
+				"amazon": pulumi.Map{
+					"bucket": bucket.Bucket,
+					"region": pulumi.String("us-west-2"),
+					"id":     pulumi.String(awsSAkey),
+					"secret": pulumi.String(awsSAsecret),
+				},
+			},
+			"serviceAccount": pulumi.Map{
+				"additionalAnnotations": pulumi.Map{
+					"eks.amazonaws.com/role-arn": saRole.Arn,
+				},
+			},
+			"worker": pulumi.Map{
+				"additionalAnnotations": pulumi.Map{
+					"eks.amazonaws.com/role-arn": saRole.Arn,
+				},
+			},
+			"externalService": pulumi.Map{
+				"enabled": pulumi.Bool(true),
+			},
+			"localhostIssuer":      pulumi.String("true"),
+			"enterpriseLicenseKey": pulumi.String("***REMOVED***"), //Set in .circleci/config.yml
+			"oauthClientSecret":    pulumi.String("***REMOVED***"),
+			"rootToken":            pulumi.String("***REMOVED***"),
+			"enterpriseSecret":     pulumi.String("***REMOVED***"),
+		}
+		if pachdVersion != "" {
+			pachdValues = pulumi.Map{
+				"image": pulumi.Map{
+					"tag": pulumi.String(pachdVersion),
+				},
+				"storage": pulumi.Map{
+					"amazon": pulumi.Map{
+						"bucket": bucket.Bucket,
+						"region": pulumi.String("us-west-2"),
+						"id":     pulumi.String(awsSAkey),
+						"secret": pulumi.String(awsSAsecret),
+					},
+				},
+				"serviceAccount": pulumi.Map{
+					"additionalAnnotations": pulumi.Map{
+						"eks.amazonaws.com/role-arn": saRole.Arn,
+					},
+				},
+				"worker": pulumi.Map{
+					"additionalAnnotations": pulumi.Map{
+						"eks.amazonaws.com/role-arn": saRole.Arn,
+					},
+				},
+				"externalService": pulumi.Map{
+					"enabled": pulumi.Bool(true),
+				},
+				"localhostIssuer":      pulumi.String("true"),
+				"enterpriseLicenseKey": pulumi.String("***REMOVED***"), //Set in .circleci/config.yml
+				"oauthClientSecret":    pulumi.String("***REMOVED***"),
+				"rootToken":            pulumi.String("***REMOVED***"),
+				"enterpriseSecret":     pulumi.String("***REMOVED***"),
+			}
+		}
+
 		array := []pulumi.AssetOrArchiveInput{}
 		array = append(array, pulumi.AssetOrArchiveInput(pulumi.NewFileAsset(valuesYaml)))
 		corePach, err := helm.NewRelease(ctx, "pach-release", &helm.ReleaseArgs{
@@ -375,34 +437,7 @@ func CreatePulumiProgram(id,
 						"oauthClientSecret": pulumi.String("***REMOVED***"),
 					},
 				},
-				"pachd": pulumi.Map{
-					"storage": pulumi.Map{
-						"amazon": pulumi.Map{
-							"bucket": bucket.Bucket,
-							"region": pulumi.String("us-west-2"),
-							"id":     pulumi.String(awsSAkey),
-							"secret": pulumi.String(awsSAsecret),
-						},
-					},
-					"serviceAccount": pulumi.Map{
-						"additionalAnnotations": pulumi.Map{
-							"eks.amazonaws.com/role-arn": saRole.Arn,
-						},
-					},
-					"worker": pulumi.Map{
-						"additionalAnnotations": pulumi.Map{
-							"eks.amazonaws.com/role-arn": saRole.Arn,
-						},
-					},
-					"externalService": pulumi.Map{
-						"enabled": pulumi.Bool(true),
-					},
-					"localhostIssuer":      pulumi.String("true"),
-					"enterpriseLicenseKey": pulumi.String("***REMOVED***"), //Set in .circleci/config.yml
-					"oauthClientSecret":    pulumi.String("***REMOVED***"),
-					"rootToken":            pulumi.String("***REMOVED***"),
-					"enterpriseSecret":     pulumi.String("***REMOVED***"),
-				},
+				"pachd":        pachdValues,
 				"deployTarget": pulumi.String("AMAZON"),
 				"global": pulumi.Map{
 					"postgresql": pulumi.Map{
