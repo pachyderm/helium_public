@@ -396,7 +396,7 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 					"tls": pulumi.MapArray{
 						pulumi.Map{
 							"hosts":      pulumi.StringArray{jupyterURL},
-							"secretName": pulumi.String("wildcard-tls"),
+							"secretName": pulumi.String("workspace-wildcard"),
 						},
 					},
 				},
