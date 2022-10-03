@@ -37,7 +37,6 @@ func Name() string {
 	return generateName() + "-" + randomString(randomStringLength)
 }
 
-// TODO: Write tests, especially for handling pointers
 func ToPulumi(v any) pulumi.Input {
 	var m = make(pulumi.Map)
 	if v == nil {
@@ -47,20 +46,12 @@ func ToPulumi(v any) pulumi.Input {
 	switch v := v.(type) {
 	case string:
 		return pulumi.String(v)
-	case *string:
-		return pulumi.StringPtr(*v)
 	case bool:
 		return pulumi.Bool(v)
-	case *bool:
-		return pulumi.BoolPtr(*v)
 	case int:
 		return pulumi.Int(v)
-	case *int:
-		return pulumi.IntPtr(*v)
 	case float64:
 		return pulumi.Float64(v)
-	case *float64:
-		return pulumi.Float64Ptr(*v)
 	case map[string]any:
 		for k, vv := range v {
 			m[k] = ToPulumi(vv)
