@@ -3,7 +3,6 @@ package gcp_namespace_only
 import (
 	"fmt"
 	"io/ioutil"
-	"os"
 	"strings"
 
 	"github.com/pulumi/pulumi-gcp/sdk/v6/go/gcp/compute"
@@ -16,6 +15,7 @@ import (
 	helm "github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/helm/v3"
 	metav1 "github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/meta/v1"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
+	"github.com/pulumi/pulumi/sdk/v3/go/pulumi/config"
 	log "github.com/sirupsen/logrus"
 
 	"gopkg.in/yaml.v3"
@@ -34,17 +34,25 @@ const (
 )
 
 var (
-	clusterStack      = "pachyderm/helium/ci-test-3"
-	project           = "helium"
-	clientSecret      = os.Getenv("HELIUM_CLIENT_SECRET")
-	clientID          = os.Getenv("HELIUM_CLIENT_ID")
-	expirationNumDays = os.Getenv("HELIUM_DEFAULT_EXPIRATION_DAYS")
-	auth0Domain       = "https://***REMOVED***.auth0.com/"
-	auth0SubDomain    = "***REMOVED***"
+	clusterStack = "pachyderm/helium/ci-test-3"
+	project      = "helium"
 )
 
 func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVersion, notebooksVersion, valuesYaml, createdBy, clusterStack string, cleanup2, disableNotebooks bool, infraJson *api.InfraJson, valuesYamlContent []byte) pulumi.RunFunc {
 	return func(ctx *pulumi.Context) error {
+		conf := config.New(ctx, "helium")
+		clientSecret := conf.Require("client-secret")
+		clientID := conf.Require("client-id")
+		authDomain := conf.Require("auth-domain")
+		authSubDomain := conf.Require("auth-subdomain")
+		postgresPassword := conf.Require("postgres-password")
+		postgresPgPassword := conf.Require("postgres-pg-password")
+		consoleOauthClientSecret := conf.Require("console-oauthClientSecret")
+		pachdOauthClientSecret := conf.Require("pachd-oauthClientSecret")
+		pachdRootToken := conf.Require("pachd-root-token")
+		pachdEnterpriseSecret := conf.Require("pachd-enterprise-secret")
+		pachdEnterpriseLicense := conf.Require("pachd-enterprise-license")
+
 		slug := "pachyderm/helium/default-cluster"
 		if clusterStack != "" {
 			slug = clusterStack
@@ -127,24 +135,25 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 		consoleRedirectURI := fmt.Sprintf("https://%v/dex/callback", url)
 		oicdRedirectURI := fmt.Sprintf("https://%v/dex", url)
 
-		defaultValues := `deployTarget: "GOOGLE"
+		defaultValues := fmt.Sprintf(`deployTarget: "GOOGLE"
 global:
   postgresql:
-    postgresqlPassword:         "***REMOVED***"
-    postgresqlPostgresPassword: "***REMOVED***"
+    postgresqlPassword: %s
+    postgresqlPostgresPassword: %s
 console:
   enabled: true
   config:
     oauthClientID: "console"
-    oauthClientSecret: "***REMOVED***"
+    oauthClientSecret: %s
     graphqlPort: 4000
     pachdAddress: "pachd-peer:30653"
     disableTelemetry: false
 pachd:
-  oauthClientSecret: "***REMOVED***"
-  rootToken: "***REMOVED***"
-  enterpriseSecret: "***REMOVED***"
-  enterpriseLicenseKey: "***REMOVED***"
+  oidcRedirectURI: %s
+  oauthClientSecret: %s
+  rootToken: %s
+  enterpriseSecret: %s
+  enterpriseLicenseKey: %s
   annotations:
     "cluster-autoscaler.kubernetes.io/safe-to-evict": "true"
 proxy:
@@ -155,7 +164,7 @@ proxy:
     type: "LoadBalancer"
 oidc:
   mockIDP: false
-`
+`, postgresPassword, postgresPgPassword, consoleOauthClientSecret, consoleRedirectURI, pachdOauthClientSecret, pachdRootToken, pachdEnterpriseSecret, pachdEnterpriseLicense)
 
 		heliumValues := fmt.Sprintf(`
 proxy:
@@ -177,7 +186,7 @@ pachd:
   storage:
     google:
       bucket: %s
-`, url, "workspace-wildcard", oicdRedirectURI, auth0Domain, clientID, clientSecret, consoleRedirectURI, id)
+`, url, "workspace-wildcard", oicdRedirectURI, authDomain, clientID, clientSecret, consoleRedirectURI, id)
 
 		if pachdVersion != "" {
 			pachdVersionYaml := fmt.Sprintf(`  image:

@@ -248,18 +248,6 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 			return nil, err
 		}
 	}
-	//var expiryDefault int
-	//if expirationNumDays == "" {
-	//	expiryDefault = 1
-	//} else {
-	//	expiryDefault, err = strconv.Atoi(expirationNumDays)
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//}
-	//if expiryDefault == 0 {
-	//	expiryDefault = 1
-	//}
 
 	if expiry.IsZero() {
 		// default to 1 day for expiry
@@ -287,7 +275,6 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 	var program pulumi.RunFunc
 	gcpProjectID := "***REMOVED***"
 	switch backend {
-	// This could just be moved to default, but wanted to be explicit
 	case "gcp_namespace":
 		// TODO: remove debugging function in followup PR
 		log.Debug("pulumi backend gcp namespace explitly specified")
@@ -320,10 +307,33 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 			return nil, err
 		}
 	}
-	// TODO: copy wildcard into dockerfile
+
 	// TODO: should be able to switch gcp project to
 	s.SetConfig(ctx, "gcp:project", auto.ConfigValue{Value: gcpProjectID})
 	s.SetConfig(ctx, "gcp:zone", auto.ConfigValue{Value: "us-east1-b"})
+
+	config := map[string]string{
+		"id":                        stackName,
+		"expiry":                    expiryStr,
+		"helm-chart-version":        helmchartVersion,
+		"console-version":           req.ConsoleVersion,
+		"pachd-version":             req.PachdVersion,
+		"client-secret":             os.Getenv("HELIUM_CLIENT_SECRET"),
+		"client-id":                 os.Getenv("HELIUM_CLIENT_ID"),
+		"auth-domain":               "https://***REMOVED***.auth0.com/",
+		"auth-subdomain":            "***REMOVED***",
+		"postgres-password":         "***REMOVED***",
+		"postgres-pg-password":      "***REMOVED***",
+		"console-oauthClientSecret": "***REMOVED***",
+		"pachd-oauthClientSecret":   "***REMOVED***",
+		"pachd-root-token":          "***REMOVED***",
+		"pachd-enterprise-secret":   "***REMOVED***",
+		"pachd-enterprise-license":  "***REMOVED***",
+	}
+
+	for k, v := range config {
+		s.SetConfig(ctx, fmt.Sprintf("helium:%s", k), auto.ConfigValue{Value: v})
+	}
 
 	// deploy the stack
 	// we'll write all of the update logs to st	out so we can watch requests get processed
