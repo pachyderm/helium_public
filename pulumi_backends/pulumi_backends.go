@@ -277,8 +277,6 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 	gcpProjectID := "***REMOVED***"
 	switch backend {
 	case "gcp_namespace":
-		// TODO: remove debugging function in followup PR
-		log.Debug("pulumi backend gcp namespace explitly specified")
 		program = gcp_namespace.CreatePulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML, req.CreatedBy, cleanup, req.InfraJSONContent, req.ValuesYAMLContent)
 	case "gcp_cluster":
 		// TODO: remove debugging function in followup PR

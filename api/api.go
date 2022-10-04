@@ -29,10 +29,7 @@ type Spec struct {
 	// This should be an actual file upload
 	ValuesYAML        string //schema:"valuesYaml" This field isn't handled by schema directly
 	ValuesYAMLContent []byte
-	// This should be an actual file upload
-	ValuesYAMLContent []byte
-	// TODO: This needs to actually be wired up yet
-	InfraJSON string //schema:"infraJson" This field isn't handled by schema directly
+	InfraJSON         string //schema:"infraJson" This field isn't handled by schema directly
 	// TODO: A bit of a hack
 	InfraJSONContent *InfraJson
 
