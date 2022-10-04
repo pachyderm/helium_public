@@ -34,7 +34,7 @@ var (
 	auth0Domain       = "https://***REMOVED***.auth0.com/"
 )
 
-func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVersion, notebooksVersion, valuesYaml, createdBy, clusterStack string, cleanup2 bool, infraJson *api.InfraJson) pulumi.RunFunc {
+func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVersion, notebooksVersion, valuesYaml, createdBy, clusterStack string, cleanup2 bool, infraJson *api.InfraJson, valuesYamlContent []byte) pulumi.RunFunc {
 	return func(ctx *pulumi.Context) error {
 		containerService, err := projects.NewService(ctx, "project", &projects.ServiceArgs{
 			Service: pulumi.String("container.googleapis.com"),

@@ -59,10 +59,9 @@ func CreatePulumiProgram(id,
 	createdBy string,
 	cleanup2 bool,
 	infraJson *api.InfraJson,
+	valuesYamlContent []byte,
 ) pulumi.RunFunc {
 	return func(ctx *pulumi.Context) error {
-		// TODO: remove me later...
-		cleanup2 = false
 
 		urlSuffix := "***REMOVED***"
 		url := pulumi.String(id + "." + urlSuffix)

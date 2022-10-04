@@ -161,6 +161,7 @@ func AsyncCreationRequest(w http.ResponseWriter, r *http.Request) {
 		}
 
 		spec.ValuesYAML = f.Name()
+		spec.ValuesYAMLContent = content
 	}
 
 	fileInfra, _, err := r.FormFile("infraJson")
@@ -236,7 +237,7 @@ func AsyncCreationRequest(w http.ResponseWriter, r *http.Request) {
 		"cleanupOnFail":     spec.CleanupOnFail,
 		"clusterStack":      spec.ClusterStack,
 		"valuesYAML":        spec.ValuesYAML,
-		"valuesYAMLContent": content,
+		"valuesYAMLContent": spec.ValuesYAMLContent,
 		"infraJSON":         spec.ValuesYAML,
 		"infraJSONContent":  contentInfra,
 		"backend":           spec.Backend,
@@ -401,6 +402,7 @@ func UICreation(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		spec.ValuesYAML = f.Name()
+		spec.ValuesYAMLContent = content
 	}
 
 	var contentInfra []byte
@@ -464,7 +466,7 @@ func UICreation(w http.ResponseWriter, r *http.Request) {
 		"cleanupOnFail":     spec.CleanupOnFail,
 		"clusterStack":      spec.ClusterStack,
 		"valuesYAML":        spec.ValuesYAML,
-		"valuesYAMLContent": content,
+		"valuesYAMLContent": spec.ValuesYAMLContent,
 		"infraJSON":         spec.ValuesYAML,
 		"infraJSONContent":  contentInfra,
 		"backend":           spec.Backend,

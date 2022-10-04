@@ -37,7 +37,7 @@ var (
 	auth0Domain       = "https://***REMOVED***.auth0.com/"
 )
 
-func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVersion, notebooksVersion, valuesYaml, createdBy string, cleanup2 bool, infraJson *api.InfraJson) pulumi.RunFunc {
+func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVersion, notebooksVersion, valuesYaml, createdBy string, cleanup2 bool, infraJson *api.InfraJson, valuesYamlContent []byte) pulumi.RunFunc {
 	return func(ctx *pulumi.Context) error {
 		slug := "pachyderm/ci-cluster/dev"
 		stackRef, _ := pulumi.NewStackReference(ctx, slug, nil)

@@ -41,7 +41,7 @@ var (
 	auth0SubDomain    = "***REMOVED***"
 )
 
-func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVersion, notebooksVersion, valuesYaml, createdBy, clusterStack string, cleanup2 bool, infraJson *api.InfraJson) pulumi.RunFunc {
+func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVersion, notebooksVersion, valuesYaml, createdBy, clusterStack string, cleanup2 bool, infraJson *api.InfraJson, valuesYamlContent []byte) pulumi.RunFunc {
 	return func(ctx *pulumi.Context) error {
 		slug := "pachyderm/helium/default-cluster"
 		if clusterStack != "" {
@@ -204,7 +204,7 @@ pachd:
 		intermediate := util.MergeMaps(out, in)
 
 		user := map[string]any{}
-		if err := yaml.Unmarshal([]byte(valuesYaml), &user); err != nil {
+		if err := yaml.Unmarshal(valuesYamlContent, &user); err != nil {
 			return err
 		}
 
