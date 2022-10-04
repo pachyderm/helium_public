@@ -3,11 +3,7 @@ package gcp_namespace_only
 import (
 	"fmt"
 	"io/ioutil"
-<<<<<<< HEAD
 	"strings"
-=======
-	"strconv"
->>>>>>> a5e5a14 (move sentitive data and params to config)
 
 	"github.com/pulumi/pulumi-gcp/sdk/v6/go/gcp/compute"
 	"github.com/pulumi/pulumi-gcp/sdk/v6/go/gcp/container"
@@ -24,7 +20,6 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/pachyderm/helium/api"
 	"github.com/pachyderm/helium/util"
 )
 
@@ -51,7 +46,7 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 		consoleVersion := conf.Require("console-version")
 		pachdVersion := conf.Require("pachd-version")
 		notebooksVersion := conf.Require("notebooks-version")
-		valuesYaml := conf.Require("pachd-values-file")
+		valuesYamlContent := conf.Require("pachd-values-content")
 		createdBy := conf.Require("created-by")
 		clusterStack := conf.Require("cluster-stack")
 		cleanup := conf.Require("cleanup-on-failure")
@@ -237,7 +232,7 @@ pachd:
 		intermediate := util.MergeMaps(out, in)
 
 		user := map[string]any{}
-		if err := yaml.Unmarshal(valuesYamlContent, &user); err != nil {
+		if err := yaml.Unmarshal([]byte(valuesYamlContent), &user); err != nil {
 			return err
 		}
 

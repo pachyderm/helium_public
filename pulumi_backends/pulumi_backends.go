@@ -287,13 +287,13 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 		program = gcp_cluster_only.CreatePulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML, req.CreatedBy, req.ClusterStack, cleanup, req.InfraJSONContent, req.ValuesYAMLContent)
 	case "gcp_namespace_only":
 		//project = "helium-gke-clusters"
-		program = gcp_namespace_only.CreatePulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML, req.CreatedBy, req.ClusterStack, cleanup, disableNotebooks, req.InfraJSONContent, req.ValuesYAMLContent)
+		program = gcp_namespace_only.CreatePulumiProgram()
 
 	case "aws_cluster":
 		program = aws_cluster.CreatePulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML, req.CreatedBy, cleanup, req.InfraJSONContent, req.ValuesYAMLContent)
 		//
 	default:
-		program = gcp_namespace_only.CreatePulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML, req.CreatedBy, req.ClusterStack, cleanup, disableNotebooks, req.InfraJSONContent, req.ValuesYAMLContent)
+		program = gcp_namespace_only.CreatePulumiProgram()
 	}
 	s, err := auto.SelectStackInlineSource(ctx, stackName, project, program)
 	if err != nil {
@@ -314,16 +314,17 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 	//json.Marshal()
 
 	config := map[string]string{
-		"id":                 stackName,
-		"expiry":             expiryStr,
-		"helm-chart-version": helmchartVersion,
-		"console-version":    req.ConsoleVersion,
-		"pachd-version":      req.PachdVersion,
-		"notebooks-version":  req.NotebooksVersion,
-		"pachd-values-file":  req.ValuesYAML,
-		"created-by":         req.CreatedBy,
-		"cluster-stack":      req.ClusterStack,
-		"cleanup-on-failure": strconv.FormatBool(cleanup),
+		"id":                   stackName,
+		"expiry":               expiryStr,
+		"helm-chart-version":   helmchartVersion,
+		"console-version":      req.ConsoleVersion,
+		"pachd-version":        req.PachdVersion,
+		"notebooks-version":    req.NotebooksVersion,
+		"pachd-values-file":    req.ValuesYAML,
+		"created-by":           req.CreatedBy,
+		"cluster-stack":        req.ClusterStack,
+		"cleanup-on-failure":   strconv.FormatBool(cleanup),
+		"pachd-values-content": string(req.ValuesYAMLContent),
 		//"infra-json-content":        req.InfraJSONContent,
 
 		// This is an internal GCP ID, not sure if it's exposed at all through pulumi.  I got it by doing a GET call directly against their API here:
