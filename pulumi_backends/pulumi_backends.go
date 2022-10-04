@@ -344,8 +344,8 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 	repo := auto.GitRepo{
 		URL:         "https://github.com/pachyderm/poc-pulumi.git",
 		ProjectPath: "gcp_namespace_only/cli",
+		Branch:      "refs/heads/main",
 		Auth: &auto.GitAuth{
-			Username:            os.Getenv("HELIUM_GITHUB_USERNAME"),
 			PersonalAccessToken: os.Getenv("HELIUM_GITHUB_PERSONAL_TOKEN"),
 		},
 	}
