@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -312,23 +313,35 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 	s.SetConfig(ctx, "gcp:project", auto.ConfigValue{Value: gcpProjectID})
 	s.SetConfig(ctx, "gcp:zone", auto.ConfigValue{Value: "us-east1-b"})
 
+	//json.Marshal()
+
 	config := map[string]string{
-		"id":                        stackName,
-		"expiry":                    expiryStr,
-		"helm-chart-version":        helmchartVersion,
-		"console-version":           req.ConsoleVersion,
-		"pachd-version":             req.PachdVersion,
-		"client-secret":             os.Getenv("HELIUM_CLIENT_SECRET"),
-		"client-id":                 os.Getenv("HELIUM_CLIENT_ID"),
-		"auth-domain":               "https://***REMOVED***.auth0.com/",
-		"auth-subdomain":            "***REMOVED***",
-		"postgres-password":         "***REMOVED***",
-		"postgres-pg-password":      "***REMOVED***",
-		"console-oauthClientSecret": "***REMOVED***",
-		"pachd-oauthClientSecret":   "***REMOVED***",
-		"pachd-root-token":          "***REMOVED***",
-		"pachd-enterprise-secret":   "***REMOVED***",
-		"pachd-enterprise-license":  "***REMOVED***",
+		"id":                 stackName,
+		"expiry":             expiryStr,
+		"helm-chart-version": helmchartVersion,
+		"console-version":    req.ConsoleVersion,
+		"pachd-version":      req.PachdVersion,
+		"notebooks-version":  req.NotebooksVersion,
+		"pachd-values-file":  req.ValuesYAML,
+		"created-by":         req.CreatedBy,
+		"cluster-stack":      req.ClusterStack,
+		"cleanup-on-failure": strconv.FormatBool(cleanup),
+		//"infra-json-content":        req.InfraJSONContent,
+
+		// This is an internal GCP ID, not sure if it's exposed at all through pulumi.  I got it by doing a GET call directly against their API here:
+		// https://cloud.google.com/dns/docs/reference/v1/managedZones/get?apix_params=%7B%22project%22%3A%22***REMOVED***%22%2C%22managedZone%22%3A%22test-ci%22%7D
+		"workspace-managed-zone-gcp-id": "***REMOVED***",
+		"client-secret":                 os.Getenv("HELIUM_CLIENT_SECRET"),
+		"client-id":                     os.Getenv("HELIUM_CLIENT_ID"),
+		"auth-domain":                   "https://***REMOVED***.auth0.com/",
+		"auth-subdomain":                "***REMOVED***",
+		"postgres-password":             "***REMOVED***",
+		"postgres-pg-password":          "***REMOVED***",
+		"console-oauthClientSecret":     "***REMOVED***",
+		"pachd-oauthClientSecret":       "***REMOVED***",
+		"pachd-root-token":              "***REMOVED***",
+		"pachd-enterprise-secret":       "***REMOVED***",
+		"pachd-enterprise-license":      "***REMOVED***",
 	}
 
 	for k, v := range config {

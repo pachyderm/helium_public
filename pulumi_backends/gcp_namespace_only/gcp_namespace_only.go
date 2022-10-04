@@ -3,7 +3,11 @@ package gcp_namespace_only
 import (
 	"fmt"
 	"io/ioutil"
+<<<<<<< HEAD
 	"strings"
+=======
+	"strconv"
+>>>>>>> a5e5a14 (move sentitive data and params to config)
 
 	"github.com/pulumi/pulumi-gcp/sdk/v6/go/gcp/compute"
 	"github.com/pulumi/pulumi-gcp/sdk/v6/go/gcp/container"
@@ -34,13 +38,24 @@ const (
 )
 
 var (
-	clusterStack = "pachyderm/helium/ci-test-3"
-	project      = "helium"
+	project = "helium"
 )
 
 func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVersion, notebooksVersion, valuesYaml, createdBy, clusterStack string, cleanup2, disableNotebooks bool, infraJson *api.InfraJson, valuesYamlContent []byte) pulumi.RunFunc {
 	return func(ctx *pulumi.Context) error {
-		conf := config.New(ctx, "helium")
+		conf := config.New(ctx, project)
+
+		id := conf.Require("id")
+		expiry := conf.Require("expiry")
+		helmChartVersion := conf.Require("helm-chart-version")
+		consoleVersion := conf.Require("console-version")
+		pachdVersion := conf.Require("pachd-version")
+		notebooksVersion := conf.Require("notebooks-version")
+		valuesYaml := conf.Require("pachd-values-file")
+		createdBy := conf.Require("created-by")
+		clusterStack := conf.Require("cluster-stack")
+		cleanup := conf.Require("cleanup-on-failure")
+		workspaceManagedZoneGcpId := conf.Require("workspace-managed-zone-gcp-id")
 		clientSecret := conf.Require("client-secret")
 		clientID := conf.Require("client-id")
 		authDomain := conf.Require("auth-domain")
@@ -52,6 +67,11 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 		pachdRootToken := conf.Require("pachd-root-token")
 		pachdEnterpriseSecret := conf.Require("pachd-enterprise-secret")
 		pachdEnterpriseLicense := conf.Require("pachd-enterprise-license")
+
+		cleanup2, err := strconv.ParseBool(cleanup)
+		if err != nil {
+			return err
+		}
 
 		slug := "pachyderm/helium/default-cluster"
 		if clusterStack != "" {
@@ -73,7 +93,7 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 		url := pulumi.String(id + "." + urlSuffix)
 		jupyterURL := pulumi.String("jh-" + id + "." + urlSuffix)
 
-		workspaceManagedZone, err := dns.GetManagedZone(ctx, "workspace", pulumi.ID(pulumi.String(WorkspaceManagedZoneGcpId)), nil)
+		workspaceManagedZone, err := dns.GetManagedZone(ctx, "workspace", pulumi.ID(pulumi.String(workspaceManagedZoneGcpId)), nil)
 		if err != nil {
 			return err
 		}
