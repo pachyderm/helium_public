@@ -25,7 +25,7 @@ import (
 const (
 	BackendName         = "gcp-cluster"
 	timeFormat          = "2006-01-02"
-	DefaultJupyterImage = "v0.5.1"
+	DefaultJupyterImage = "v0.6.3"
 	// This is an internal GCP ID, not sure if it's exposed at all through pulumi.  I got it by doing a GET call directly against their API here:
 	// https://cloud.google.com/dns/docs/reference/v1/managedZones/get?apix_params=%7B%22project%22%3A%22***REMOVED***%22%2C%22managedZone%22%3A%22test-ci%22%7D
 	WorkspaceManagedZoneGcpId = "***REMOVED***"
