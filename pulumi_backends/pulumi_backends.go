@@ -317,7 +317,8 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 	//		// GitAuth is the different Authentication options for the Git repository
 	//		Auth *GitAuth
 	//	}
-
+	var stackSet bool
+	var s auto.Stack
 	switch backend {
 	case "gcp_namespace":
 		program = gcp_namespace.CreatePulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML, req.CreatedBy, cleanup, req.InfraJSONContent, req.ValuesYAMLContent)
@@ -336,37 +337,38 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 		program = aws_cluster.CreatePulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML, req.CreatedBy, cleanup, req.InfraJSONContent, req.ValuesYAMLContent)
 		//
 	default:
-		program = gcp_namespace_only.CreatePulumiProgram()
-	}
-	//TODO: Remove after testing remote
-	_ = program
+		repo := auto.GitRepo{
+			URL:         "https://github.com/pachyderm/poc-pulumi.git",
+			ProjectPath: "gcp_namespace_only/cli",
+			Branch:      "refs/heads/main",
+			Auth: &auto.GitAuth{
+				PersonalAccessToken: os.Getenv("HELIUM_GITHUB_PERSONAL_TOKEN"),
+			},
+		}
 
-	repo := auto.GitRepo{
-		URL:         "https://github.com/pachyderm/poc-pulumi.git",
-		ProjectPath: "gcp_namespace_only/cli",
-		Branch:      "refs/heads/main",
-		Auth: &auto.GitAuth{
-			PersonalAccessToken: os.Getenv("HELIUM_GITHUB_PERSONAL_TOKEN"),
-		},
+		s, err = auto.UpsertStackRemoteSource(ctx, stackName, repo)
+		if err != nil {
+			fmt.Printf("Failed to create or select stack: %v\n", err)
+			os.Exit(1)
+		}
+		stackSet = true
+		//program = gcp_namespace_only.CreatePulumiProgram()
 	}
-
-	s, err := auto.UpsertStackRemoteSource(ctx, stackName, repo)
-	if err != nil {
-		fmt.Printf("Failed to create or select stack: %v\n", err)
-		os.Exit(1)
+	if !stackSet {
+		s, err = auto.SelectStackInlineSource(ctx, stackName, project, program)
+		if err != nil {
+			if auto.IsSelectStack404Error(err) {
+				s, err = auto.NewStackInlineSource(ctx, stackName, project, program)
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				return nil, err
+			}
+		}
 	}
-
-	//s, err := auto.SelectStackInlineSource(ctx, stackName, project, program)
-	//if err != nil {
-	//	if auto.IsSelectStack404Error(err) {
-	//		s, err = auto.NewStackInlineSource(ctx, stackName, project, program)
-	//		if err != nil {
-	//			return nil, err
-	//		}
-	//	} else {
-	//		return nil, err
-	//	}
-	//}
+	// TODO: Remove after testing remote
+	// _ = program
 
 	// TODO: should be able to switch gcp project to
 	s.SetConfig(ctx, "gcp:project", auto.ConfigValue{Value: gcpProjectID})
