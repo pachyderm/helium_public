@@ -353,6 +353,7 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 			"cluster-stack":        req.ClusterStack,
 			"cleanup-on-failure":   strconv.FormatBool(cleanup),
 			"pachd-values-content": string(req.ValuesYAMLContent),
+			// TODO: Wire up infrajson through config
 			//"infra-json-content":        req.InfraJSONContent,
 
 			// This is an internal GCP ID, not sure if it's exposed at all through pulumi.  I got it by doing a GET call directly against their API here:
