@@ -217,6 +217,7 @@ func AsyncCreationRequest(w http.ResponseWriter, r *http.Request) {
 	if spec.Name == "" {
 		spec.Name = util.Name()
 	}
+	spec.Name = strings.ToLower(spec.Name)
 	if badChar := validNameCharacters.FindString(spec.Name); badChar == "" {
 		w.WriteHeader(500)
 		fmt.Fprintf(w, html.EscapeString("contains invalid character or is too long, must fit this regex ^[a-z0-9]([-a-z0-9]{1,61}[a-z0-9]{1})$"))
@@ -446,6 +447,7 @@ func UICreation(w http.ResponseWriter, r *http.Request) {
 	if spec.Name == "" {
 		spec.Name = util.Name()
 	}
+	spec.Name = strings.ToLower(spec.Name)
 	if badChar := validNameCharacters.FindString(spec.Name); badChar == "" {
 		w.WriteHeader(500)
 		fmt.Fprintf(w, html.EscapeString("contains invalid character or is too long, must fit this regex ^[a-z0-9]([-a-z0-9]{1,61}[a-z0-9]{1})$"))
