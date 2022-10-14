@@ -41,7 +41,7 @@ var (
 	auth0SubDomain    = "***REMOVED***"
 )
 
-func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVersion, notebooksVersion, valuesYaml, createdBy, clusterStack string, cleanup2 bool, infraJson *api.InfraJson, valuesYamlContent []byte) pulumi.RunFunc {
+func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVersion, notebooksVersion, valuesYaml, createdBy, clusterStack string, cleanup2, disableNotebooks bool, infraJson *api.InfraJson, valuesYamlContent []byte) pulumi.RunFunc {
 	return func(ctx *pulumi.Context) error {
 		slug := "pachyderm/helium/default-cluster"
 		if clusterStack != "" {
@@ -84,15 +84,17 @@ func CreatePulumiProgram(id, expiry, helmChartVersion, consoleVersion, pachdVers
 			return err
 		}
 
-		_, err = dns.NewRecordSet(ctx, "jh-record-set", &dns.RecordSetArgs{
-			Name:        jupyterURL + ".",
-			Type:        pulumi.String("A"),
-			Ttl:         pulumi.Int(300),
-			ManagedZone: workspaceManagedZone.Name,
-			Rrdatas:     pulumi.StringArray{pulumi.Sprintf("%s", haproxyExternalOutput)},
-		})
-		if err != nil {
-			return err
+		if !disableNotebooks {
+			_, err = dns.NewRecordSet(ctx, "jh-record-set", &dns.RecordSetArgs{
+				Name:        jupyterURL + ".",
+				Type:        pulumi.String("A"),
+				Ttl:         pulumi.Int(300),
+				ManagedZone: workspaceManagedZone.Name,
+				Rrdatas:     pulumi.StringArray{pulumi.Sprintf("%s", haproxyExternalOutput)},
+			})
+			if err != nil {
+				return err
+			}
 		}
 
 		bucket, err := storage.NewBucket(ctx, "pach-bucket", &storage.BucketArgs{
@@ -246,87 +248,90 @@ pachd:
 			return err
 		}
 
-		nbUserImage := "pachyderm/notebooks-user" + ":" + DefaultJupyterImage
+		if !disableNotebooks {
 
-		//	jupyterImage := DefaultJupyterImage
-		if notebooksVersion != "" {
-			nbUserImage = "pachyderm/notebooks-user" + ":" + notebooksVersion
-		}
-		// file, err := ioutil.ReadFile("./root.py")
-		volumeFile, err := ioutil.ReadFile("./volume.py")
-		if err != nil {
-			return err
-		}
-		volumeStr := string(volumeFile)
-		// fileStr := string(file)
+			nbUserImage := "pachyderm/notebooks-user" + ":" + DefaultJupyterImage
 
-		_, err = helm.NewRelease(ctx, "jh-release", &helm.ReleaseArgs{
-			Namespace: namespace.Metadata.Elem().Name(),
-			RepositoryOpts: helm.RepositoryOptsArgs{
-				Repo: pulumi.String("https://jupyterhub.github.io/helm-chart/"),
-			},
-			Atomic:        pulumi.Bool(cleanup2),
-			CleanupOnFail: pulumi.Bool(cleanup2),
-			Timeout:       pulumi.Int(600),
-			Chart:         pulumi.String("jupyterhub"),
-			Values: pulumi.Map{
-				"singleuser": pulumi.Map{
-					"defaultUrl": pulumi.String("/lab"),
-					"cloudMetadata": pulumi.Map{
-						"blockWithIptables": pulumi.Bool(false),
-					},
-					"profileList": pulumi.MapArray{
-						pulumi.Map{
-							"display_name": pulumi.String("combined"),
-							"description":  pulumi.String("Run mount server in Jupyter container"),
-							"slug":         pulumi.String("combined"),
-							"default":      pulumi.Bool(true),
-							"kubespawner_override": pulumi.Map{
-								"image":  pulumi.String(nbUserImage),
-								"cmd":    pulumi.String("start-singleuser.sh"),
-								"uid":    pulumi.Int(0),
-								"fs_gid": pulumi.Int(0),
-								"environment": pulumi.Map{
-									"GRANT_SUDO":         pulumi.String("yes"),
-									"NOTEBOOK_ARGS":      pulumi.String("--allow-root"),
-									"JUPYTER_ENABLE_LAB": pulumi.String("yes"),
-									"CHOWN_HOME":         pulumi.String("yes"),
-									"CHOWN_HOME_OPTS":    pulumi.String("-R"),
-								},
-								"container_security_context": pulumi.Map{
-									"allowPrivilegeEscalation": pulumi.Bool(true),
-									"runAsUser":                pulumi.Int(0),
-									"privileged":               pulumi.Bool(true),
-									"capabilities": pulumi.Map{
-										"add": pulumi.StringArray{pulumi.String("SYS_ADMIN")},
+			//	jupyterImage := DefaultJupyterImage
+			if notebooksVersion != "" {
+				nbUserImage = "pachyderm/notebooks-user" + ":" + notebooksVersion
+			}
+			// file, err := ioutil.ReadFile("./root.py")
+			volumeFile, err := ioutil.ReadFile("./volume.py")
+			if err != nil {
+				return err
+			}
+			volumeStr := string(volumeFile)
+			// fileStr := string(file)
+
+			_, err = helm.NewRelease(ctx, "jh-release", &helm.ReleaseArgs{
+				Namespace: namespace.Metadata.Elem().Name(),
+				RepositoryOpts: helm.RepositoryOptsArgs{
+					Repo: pulumi.String("https://jupyterhub.github.io/helm-chart/"),
+				},
+				Atomic:        pulumi.Bool(cleanup2),
+				CleanupOnFail: pulumi.Bool(cleanup2),
+				Timeout:       pulumi.Int(600),
+				Chart:         pulumi.String("jupyterhub"),
+				Values: pulumi.Map{
+					"singleuser": pulumi.Map{
+						"defaultUrl": pulumi.String("/lab"),
+						"cloudMetadata": pulumi.Map{
+							"blockWithIptables": pulumi.Bool(false),
+						},
+						"profileList": pulumi.MapArray{
+							pulumi.Map{
+								"display_name": pulumi.String("combined"),
+								"description":  pulumi.String("Run mount server in Jupyter container"),
+								"slug":         pulumi.String("combined"),
+								"default":      pulumi.Bool(true),
+								"kubespawner_override": pulumi.Map{
+									"image":  pulumi.String(nbUserImage),
+									"cmd":    pulumi.String("start-singleuser.sh"),
+									"uid":    pulumi.Int(0),
+									"fs_gid": pulumi.Int(0),
+									"environment": pulumi.Map{
+										"GRANT_SUDO":         pulumi.String("yes"),
+										"NOTEBOOK_ARGS":      pulumi.String("--allow-root"),
+										"JUPYTER_ENABLE_LAB": pulumi.String("yes"),
+										"CHOWN_HOME":         pulumi.String("yes"),
+										"CHOWN_HOME_OPTS":    pulumi.String("-R"),
+									},
+									"container_security_context": pulumi.Map{
+										"allowPrivilegeEscalation": pulumi.Bool(true),
+										"runAsUser":                pulumi.Int(0),
+										"privileged":               pulumi.Bool(true),
+										"capabilities": pulumi.Map{
+											"add": pulumi.StringArray{pulumi.String("SYS_ADMIN")},
+										},
 									},
 								},
 							},
-						},
-						pulumi.Map{
+							pulumi.Map{
 
-							"display_name": pulumi.String("sidecar"),
-							"slug":         pulumi.String("sidecar"),
-							"description":  pulumi.String("Run mount server as a sidecar"),
-							"kubespawner_override": pulumi.Map{
-								"image": pulumi.String(nbUserImage),
-								"environment": pulumi.Map{
-									"SIDECAR_MODE": pulumi.String("true"),
-								},
-								"extra_containers": pulumi.MapArray{
-									pulumi.Map{
-										"name":    pulumi.String("mount-server-manager"),
-										"image":   pulumi.String("pachyderm/mount-server:7d2471590000c6ac847a64a77e3f6c0687e64f01"),
-										"command": pulumi.StringArray{pulumi.String("/bin/bash"), pulumi.String("-c"), pulumi.String("mount-server")},
-										"securityContext": pulumi.Map{
-											"privileged": pulumi.Bool(true),
-											"runAsUser":  pulumi.Int(0),
-										},
-										"volumeMounts": pulumi.MapArray{
-											pulumi.Map{
-												"name":             pulumi.String("shared-pfs"),
-												"mountPath":        pulumi.String("/pfs"),
-												"mountPropagation": pulumi.String("Bidirectional"),
+								"display_name": pulumi.String("sidecar"),
+								"slug":         pulumi.String("sidecar"),
+								"description":  pulumi.String("Run mount server as a sidecar"),
+								"kubespawner_override": pulumi.Map{
+									"image": pulumi.String(nbUserImage),
+									"environment": pulumi.Map{
+										"SIDECAR_MODE": pulumi.String("true"),
+									},
+									"extra_containers": pulumi.MapArray{
+										pulumi.Map{
+											"name":    pulumi.String("mount-server-manager"),
+											"image":   pulumi.String("pachyderm/mount-server:7d2471590000c6ac847a64a77e3f6c0687e64f01"),
+											"command": pulumi.StringArray{pulumi.String("/bin/bash"), pulumi.String("-c"), pulumi.String("mount-server")},
+											"securityContext": pulumi.Map{
+												"privileged": pulumi.Bool(true),
+												"runAsUser":  pulumi.Int(0),
+											},
+											"volumeMounts": pulumi.MapArray{
+												pulumi.Map{
+													"name":             pulumi.String("shared-pfs"),
+													"mountPath":        pulumi.String("/pfs"),
+													"mountPropagation": pulumi.String("Bidirectional"),
+												},
 											},
 										},
 									},
@@ -334,63 +339,63 @@ pachd:
 							},
 						},
 					},
-				},
-				//cull
-				"ingress": pulumi.Map{
-					"enabled": pulumi.Bool(true),
-					"annotations": pulumi.Map{
-						"kubernetes.io/ingress.class": pulumi.String("haproxy"),
-						//"traefik.ingress.kubernetes.io/router.tls": pulumi.String("true"),
+					//cull
+					"ingress": pulumi.Map{
+						"enabled": pulumi.Bool(true),
+						"annotations": pulumi.Map{
+							"kubernetes.io/ingress.class": pulumi.String("haproxy"),
+							//"traefik.ingress.kubernetes.io/router.tls": pulumi.String("true"),
+						},
+						"hosts": pulumi.StringArray{jupyterURL},
+						"tls": pulumi.MapArray{
+							pulumi.Map{
+								"hosts":      pulumi.StringArray{jupyterURL},
+								"secretName": pulumi.String("workspace-wildcard"),
+							},
+						},
 					},
-					"hosts": pulumi.StringArray{jupyterURL},
-					"tls": pulumi.MapArray{
-						pulumi.Map{
-							"hosts":      pulumi.StringArray{jupyterURL},
-							"secretName": pulumi.String("workspace-wildcard"),
+					"prePuller": pulumi.Map{
+						"hook": pulumi.Map{
+							"enabled": pulumi.Bool(false),
+						},
+					},
+					"hub": pulumi.Map{
+						"config": pulumi.Map{
+							"Auth0OAuthenticator": pulumi.Map{
+								"client_id":          pulumi.String(clientID),
+								"client_secret":      pulumi.String(clientSecret),
+								"oauth_callback_url": pulumi.String("https://" + jupyterURL + "/hub/oauth_callback"),
+								"scope":              pulumi.StringArray{pulumi.String("openid"), pulumi.String("email")},
+								"auth0_subdomain":    pulumi.String(auth0SubDomain),
+							},
+							"Authenticator": pulumi.Map{
+								"auto_login": pulumi.Bool(true),
+							},
+							"JupyterHub": pulumi.Map{
+								"authenticator_class": pulumi.String("auth0"),
+							},
+						},
+						"extraConfig": pulumi.Map{
+							//"podRoot": pulumi.String(fileStr),
+							"volume": pulumi.String(volumeStr),
+						},
+					},
+					"proxy": pulumi.Map{
+						"service": pulumi.Map{
+							"type": pulumi.String("ClusterIP"),
+						},
+					},
+					"scheduling": pulumi.Map{
+						"userScheduler": pulumi.Map{
+							"enabled": pulumi.Bool(false),
 						},
 					},
 				},
-				"prePuller": pulumi.Map{
-					"hook": pulumi.Map{
-						"enabled": pulumi.Bool(false),
-					},
-				},
-				"hub": pulumi.Map{
-					"config": pulumi.Map{
-						"Auth0OAuthenticator": pulumi.Map{
-							"client_id":          pulumi.String(clientID),
-							"client_secret":      pulumi.String(clientSecret),
-							"oauth_callback_url": pulumi.String("https://" + jupyterURL + "/hub/oauth_callback"),
-							"scope":              pulumi.StringArray{pulumi.String("openid"), pulumi.String("email")},
-							"auth0_subdomain":    pulumi.String(auth0SubDomain),
-						},
-						"Authenticator": pulumi.Map{
-							"auto_login": pulumi.Bool(true),
-						},
-						"JupyterHub": pulumi.Map{
-							"authenticator_class": pulumi.String("auth0"),
-						},
-					},
-					"extraConfig": pulumi.Map{
-						//"podRoot": pulumi.String(fileStr),
-						"volume": pulumi.String(volumeStr),
-					},
-				},
-				"proxy": pulumi.Map{
-					"service": pulumi.Map{
-						"type": pulumi.String("ClusterIP"),
-					},
-				},
-				"scheduling": pulumi.Map{
-					"userScheduler": pulumi.Map{
-						"enabled": pulumi.Bool(false),
-					},
-				},
-			},
-		}, pulumi.Provider(k8sProvider))
+			}, pulumi.Provider(k8sProvider))
 
-		if err != nil {
-			return err
+			if err != nil {
+				return err
+			}
 		}
 
 		pachdAddress := fmt.Sprintf("%v://%v:%v", "grpcs", url, "443")

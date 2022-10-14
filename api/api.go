@@ -23,6 +23,7 @@ type Spec struct {
 	NotebooksVersion string `schema:"notebooksVersion"`
 	HelmVersion      string `schema:"helmVersion"`
 	CleanupOnFail    string `schema:"cleanupOnFail"`
+	DisableNotebooks string `schema:"disableNotebooks"`
 	Backend          string `schema:"backend"`
 	ClusterStack     string `schema:"clusterStack"`
 	// This should be an actual file upload
