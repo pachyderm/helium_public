@@ -4,12 +4,14 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 
 	"github.com/pulumi/pulumi-gcp/sdk/v6/go/gcp/compute"
 	"github.com/pulumi/pulumi-gcp/sdk/v6/go/gcp/container"
 	"github.com/pulumi/pulumi-gcp/sdk/v6/go/gcp/dns"
 	"github.com/pulumi/pulumi-gcp/sdk/v6/go/gcp/storage"
 	"github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes"
+	appsv1 "github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/apps/v1"
 	corev1 "github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/core/v1"
 	helm "github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/helm/v3"
 	metav1 "github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/meta/v1"
@@ -249,13 +251,22 @@ pachd:
 		}
 
 		if !disableNotebooks {
-
 			nbUserImage := "pachyderm/notebooks-user" + ":" + DefaultJupyterImage
-
 			//	jupyterImage := DefaultJupyterImage
 			if notebooksVersion != "" {
-				nbUserImage = "pachyderm/notebooks-user" + ":" + notebooksVersion
+				nbUserImage = "pachyderm/notebooks-user:" + notebooksVersion
 			}
+
+			pachdImage := corePach.GetResource("v1/Deployment", "pachd", id).ApplyT(func(r interface{}) pulumi.StringOutput {
+				return r.(*appsv1.Deployment).Spec.Elem().Template().Spec().Elem().Containers().Index(pulumi.Int(0)).Image().Elem()
+			}).(pulumi.StringOutput)
+			mountServerImage := pachdImage.ApplyT(func(image string) string {
+				if notebooksVersion != "" {
+					return "pachyderm/mount-server:" + notebooksVersion
+				}
+				return "pachyderm/mount-server:" + strings.Split(image, ":")[1]
+			}).(pulumi.StringOutput)
+
 			// file, err := ioutil.ReadFile("./root.py")
 			volumeFile, err := ioutil.ReadFile("./volume.py")
 			if err != nil {
@@ -320,7 +331,7 @@ pachd:
 									"extra_containers": pulumi.MapArray{
 										pulumi.Map{
 											"name":    pulumi.String("mount-server-manager"),
-											"image":   pulumi.String("pachyderm/mount-server:7d2471590000c6ac847a64a77e3f6c0687e64f01"),
+											"image":   mountServerImage,
 											"command": pulumi.StringArray{pulumi.String("/bin/bash"), pulumi.String("-c"), pulumi.String("mount-server")},
 											"securityContext": pulumi.Map{
 												"privileged": pulumi.Bool(true),
