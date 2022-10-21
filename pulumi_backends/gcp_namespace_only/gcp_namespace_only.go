@@ -257,7 +257,7 @@ pachd:
 				nbUserImage = "pachyderm/notebooks-user:" + notebooksVersion
 			}
 
-			pachdImage := corePach.GetResource("v1/Deployment", "pachd", id).ApplyT(func(r interface{}) pulumi.StringOutput {
+			pachdImage := corePach.GetResource("apps/v1/Deployment", "pachd", id).ApplyT(func(r interface{}) pulumi.StringOutput {
 				return r.(*appsv1.Deployment).Spec.Elem().Template().Spec().Elem().Containers().Index(pulumi.Int(0)).Image().Elem()
 			}).(pulumi.StringOutput)
 			mountServerImage := pachdImage.ApplyT(func(image string) string {
