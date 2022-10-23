@@ -16,8 +16,6 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 
 	"github.com/pachyderm/helium/api"
-	"github.com/pachyderm/helium/pulumi_backends/aws_cluster"
-	"github.com/pachyderm/helium/pulumi_backends/gcp_cluster_only"
 	"github.com/pachyderm/helium/util"
 
 	log "github.com/sirupsen/logrus"
@@ -28,6 +26,7 @@ func init() {
 	ensurePlugins()
 }
 
+//
 const (
 	//BackendName = "gcp-namespace-pulumi"
 	timeFormat = "2006-01-02"
@@ -270,7 +269,9 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 	}
 
 	backend := strings.ToLower(req.Backend)
-	var program pulumi.RunFunc
+	if backend == "" {
+		backend = "gcp_namespace_only"
+	}
 	gcpProjectID := "***REMOVED***"
 
 	//	// GitAuth is the authentication details that can be specified for a private Git repo.
@@ -314,83 +315,79 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 	//		// GitAuth is the different Authentication options for the Git repository
 	//		Auth *GitAuth
 	//	}
-	var stackSet bool
 	var s auto.Stack
-	switch backend {
-	case "gcp_cluster_only":
-		//project = "helium-gke-clusters"
-		program = gcp_cluster_only.CreatePulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML, req.CreatedBy, req.ClusterStack, cleanup, req.InfraJSONContent, req.ValuesYAMLContent)
 
-	case "aws_cluster":
-		program = aws_cluster.CreatePulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML, req.CreatedBy, cleanup, req.InfraJSONContent, req.ValuesYAMLContent)
-		//
-	default:
-		repo := auto.GitRepo{
-			URL:         "https://github.com/pachyderm/poc-pulumi.git",
-			ProjectPath: "gcp_namespace_only",
-			Branch:      "refs/heads/main",
-			Auth: &auto.GitAuth{
-				PersonalAccessToken: os.Getenv("HELIUM_GITHUB_PERSONAL_TOKEN"),
-			},
-		}
-
-		s, err = auto.UpsertStackRemoteSource(ctx, stackName, repo)
-		if err != nil {
-			fmt.Printf("Failed to create or select stack: %v\n", err)
-			os.Exit(1)
-		}
-		stackSet = true
-
-		config := map[string]string{
-			"id":                   stackName,
-			"expiry":               expiryStr,
-			"helm-chart-version":   helmchartVersion,
-			"console-version":      req.ConsoleVersion,
-			"pachd-version":        req.PachdVersion,
-			"notebooks-version":    req.NotebooksVersion,
-			"disable-notebooks":    "False",
-			"pachd-values-file":    req.ValuesYAML,
-			"created-by":           req.CreatedBy,
-			"cluster-stack":        req.ClusterStack,
-			"cleanup-on-failure":   strconv.FormatBool(cleanup),
-			"pachd-values-content": string(req.ValuesYAMLContent),
-			// TODO: Wire up infrajson through config
-			//"infra-json-content":        req.InfraJSONContent,
-
-			// This is an internal GCP ID, not sure if it's exposed at all through pulumi.  I got it by doing a GET call directly against their API here:
-			// https://cloud.google.com/dns/docs/reference/v1/managedZones/get?apix_params=%7B%22project%22%3A%22***REMOVED***%22%2C%22managedZone%22%3A%22test-ci%22%7D
-			"workspace-managed-zone-gcp-id": "***REMOVED***",
-			"client-secret":                 os.Getenv("HELIUM_CLIENT_SECRET"),
-			"client-id":                     os.Getenv("HELIUM_CLIENT_ID"),
-			"auth-domain":                   "https://***REMOVED***.auth0.com/",
-			"auth-subdomain":                "***REMOVED***",
-			"postgres-password":             "***REMOVED***",
-			"postgres-pg-password":          "***REMOVED***",
-			"console-oauthClientSecret":     "***REMOVED***",
-			"pachd-oauthClientSecret":       "***REMOVED***",
-			"pachd-root-token":              "***REMOVED***",
-			"pachd-enterprise-secret":       "***REMOVED***",
-			"pachd-enterprise-license":      "***REMOVED***",
-		}
-
-		for k, v := range config {
-			s.SetConfig(ctx, fmt.Sprintf("helium:%s", k), auto.ConfigValue{Value: v})
-		}
-		//program = gcp_namespace_only.CreatePulumiProgram()
+	repo := auto.GitRepo{
+		URL:         "https://github.com/pachyderm/poc-pulumi.git",
+		ProjectPath: backend,
+		Branch:      "refs/heads/main",
+		Auth: &auto.GitAuth{
+			PersonalAccessToken: os.Getenv("HELIUM_GITHUB_PERSONAL_TOKEN"),
+		},
 	}
-	if !stackSet {
-		s, err = auto.SelectStackInlineSource(ctx, stackName, project, program)
-		if err != nil {
-			if auto.IsSelectStack404Error(err) {
-				s, err = auto.NewStackInlineSource(ctx, stackName, project, program)
-				if err != nil {
-					return nil, err
-				}
-			} else {
-				return nil, err
-			}
-		}
+
+	s, err = auto.UpsertStackRemoteSource(ctx, stackName, repo)
+	if err != nil {
+		fmt.Printf("failed to create or select stack: %v\n", err)
+		os.Exit(1)
 	}
+
+	wwYaml, err := os.ReadFile("workspace-wildcard.yaml")
+	if err != nil {
+		fmt.Printf("failed to load workspace-wildcard.yaml: %v\n", err)
+		os.Exit(1)
+	}
+
+	config := map[string]string{
+		"id":                   stackName,
+		"expiry":               expiryStr,
+		"created-by":           req.CreatedBy,
+		"workspace-wildcard":   string(wwYaml),
+		"helm-chart-version":   helmchartVersion,
+		"console-version":      req.ConsoleVersion,
+		"pachd-version":        req.PachdVersion,
+		"notebooks-version":    req.NotebooksVersion,
+		"disable-notebooks":    strconv.FormatBool(disableNotebooks),
+		"pachd-values-file":    req.ValuesYAML,
+		"cluster-stack":        req.ClusterStack,
+		"cleanup-on-failure":   strconv.FormatBool(cleanup),
+		"pachd-values-content": string(req.ValuesYAMLContent),
+		// TODO: Wire up infrajson through config
+		//"infra-json-content":        req.InfraJSONContent,
+
+		// This is an internal GCP ID, not sure if it's exposed at all through pulumi.  I got it by doing a GET call directly against their API here:
+		// https://cloud.google.com/dns/docs/reference/v1/managedZones/get?apix_params=%7B%22project%22%3A%22***REMOVED***%22%2C%22managedZone%22%3A%22test-ci%22%7D
+		"workspace-managed-zone-gcp-id": "***REMOVED***",
+		"client-secret":                 os.Getenv("HELIUM_CLIENT_SECRET"),
+		"client-id":                     os.Getenv("HELIUM_CLIENT_ID"),
+		"auth-domain":                   "https://***REMOVED***.auth0.com/",
+		"auth-subdomain":                "***REMOVED***",
+		"postgres-password":             "***REMOVED***",
+		"postgres-pg-password":          "***REMOVED***",
+		"console-oauthClientSecret":     "***REMOVED***",
+		"pachd-oauthClientSecret":       "***REMOVED***",
+		"pachd-root-token":              "***REMOVED***",
+		"pachd-enterprise-secret":       "***REMOVED***",
+		"pachd-enterprise-license":      "***REMOVED***",
+	}
+
+	for k, v := range config {
+		s.SetConfig(ctx, fmt.Sprintf("helium:%s", k), auto.ConfigValue{Value: v})
+	}
+	//program = gcp_namespace_only.CreatePulumiProgram()
+	//if !stackSet {
+	//	s, err = auto.SelectStackInlineSource(ctx, stackName, project, program)
+	//	if err != nil {
+	//		if auto.IsSelectStack404Error(err) {
+	//			s, err = auto.NewStackInlineSource(ctx, stackName, project, program)
+	//			if err != nil {
+	//				return nil, err
+	//			}
+	//		} else {
+	//			return nil, err
+	//		}
+	//	}
+	//}
 
 	// TODO: should be able to switch gcp project to
 	s.SetConfig(ctx, "gcp:project", auto.ConfigValue{Value: gcpProjectID})
