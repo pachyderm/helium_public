@@ -327,7 +327,7 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 	default:
 		repo := auto.GitRepo{
 			URL:         "https://github.com/pachyderm/poc-pulumi.git",
-			ProjectPath: "gcp_namespace_only/cli",
+			ProjectPath: "gcp_namespace_only",
 			Branch:      "refs/heads/main",
 			Auth: &auto.GitAuth{
 				PersonalAccessToken: os.Getenv("HELIUM_GITHUB_PERSONAL_TOKEN"),
@@ -348,6 +348,7 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 			"console-version":      req.ConsoleVersion,
 			"pachd-version":        req.PachdVersion,
 			"notebooks-version":    req.NotebooksVersion,
+			"disable-notebooks":    "False",
 			"pachd-values-file":    req.ValuesYAML,
 			"created-by":           req.CreatedBy,
 			"cluster-stack":        req.ClusterStack,
