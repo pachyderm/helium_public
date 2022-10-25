@@ -274,47 +274,6 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 	}
 	gcpProjectID := "***REMOVED***"
 
-	//	// GitAuth is the authentication details that can be specified for a private Git repo.
-	//	// There are 3 different authentication paths:
-	//	// * PersonalAccessToken
-	//	// * SSHPrivateKeyPath (and it's potential password)
-	//	// * Username and Password
-	//	// Only 1 authentication path is valid. If more than 1 is specified it will result in an error
-	//	type GitAuth struct {
-	//		// The absolute path to a private key for access to the git repo
-	//		// When using `SSHPrivateKeyPath`, the URL of the repository must be in the format
-	//		// git@github.com:org/repository.git - if the url is not in this format, then an error
-	//		// `unable to clone repo: invalid auth method` will be returned
-	//		SSHPrivateKeyPath string
-	//		// The (contents) private key for access to the git repo.
-	//		// When using `SSHPrivateKey`, the URL of the repository must be in the format
-	//		// git@github.com:org/repository.git - if the url is not in this format, then an error
-	//		// `unable to clone repo: invalid auth method` will be returned
-	//		SSHPrivateKey string
-	//		// The password that pairs with a username or as part of an SSH Private Key
-	//		Password string
-	//		// PersonalAccessToken is a Git personal access token in replacement of your password
-	//		PersonalAccessToken string
-	//		// Username is the username to use when authenticating to a git repository
-	//		Username string
-	//	}
-	//
-	//	// GitRepo contains info to acquire and setup a Pulumi program from a git repository.
-	//	type GitRepo struct {
-	//		// URL to clone git repo
-	//		URL string
-	//		// Optional path relative to the repo root specifying location of the pulumi program.
-	//		// Specifying this option will update the Workspace's WorkDir accordingly.
-	//		ProjectPath string
-	//		// Optional branch to checkout.
-	//		Branch string
-	//		// Optional commit to checkout.
-	//		CommitHash string
-	//		// Optional function to execute after enlisting in the specified repo.
-	//		Setup string
-	//		// GitAuth is the different Authentication options for the Git repository
-	//		Auth *GitAuth
-	//	}
 	var s auto.Stack
 
 	repo := auto.GitRepo{
