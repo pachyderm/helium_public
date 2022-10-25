@@ -352,12 +352,14 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 		"cluster-stack":        req.ClusterStack,
 		"cleanup-on-failure":   strconv.FormatBool(cleanup),
 		"pachd-values-content": string(req.ValuesYAMLContent),
-		// TODO: Wire up infrajson through config
-		//"infra-json-content":        req.InfraJSONContent,
+		"infra-json-content":   string(req.InfraJSONContent),
 
 		// This is an internal GCP ID, not sure if it's exposed at all through pulumi.  I got it by doing a GET call directly against their API here:
 		// https://cloud.google.com/dns/docs/reference/v1/managedZones/get?apix_params=%7B%22project%22%3A%22***REMOVED***%22%2C%22managedZone%22%3A%22test-ci%22%7D
 		"workspace-managed-zone-gcp-id": "***REMOVED***",
+		"workspace-base-url":            "***REMOVED***",
+		"testci-base-url":               "***REMOVED***",
+		"testci-managed-zone-gcp-id":    "***REMOVED***",
 		"client-secret":                 os.Getenv("HELIUM_CLIENT_SECRET"),
 		"client-id":                     os.Getenv("HELIUM_CLIENT_ID"),
 		"auth-domain":                   "https://***REMOVED***.auth0.com/",
