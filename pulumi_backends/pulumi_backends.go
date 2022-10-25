@@ -337,20 +337,6 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 	for k, v := range config {
 		s.SetConfig(ctx, fmt.Sprintf("helium:%s", k), auto.ConfigValue{Value: v})
 	}
-	//program = gcp_namespace_only.CreatePulumiProgram()
-	//if !stackSet {
-	//	s, err = auto.SelectStackInlineSource(ctx, stackName, project, program)
-	//	if err != nil {
-	//		if auto.IsSelectStack404Error(err) {
-	//			s, err = auto.NewStackInlineSource(ctx, stackName, project, program)
-	//			if err != nil {
-	//				return nil, err
-	//			}
-	//		} else {
-	//			return nil, err
-	//		}
-	//	}
-	//}
 
 	// TODO: should be able to switch gcp project to
 	s.SetConfig(ctx, "gcp:project", auto.ConfigValue{Value: gcpProjectID})
@@ -431,8 +417,6 @@ func ensurePlugins() {
 		fmt.Printf("Failed to install program plugins: %v\n", err)
 		os.Exit(1)
 	}
-	//fmt.Printf("aws access key id: %v", os.Getenv("AWS_ACCESS_KEY_ID"))
-	//fmt.Printf("aws secret access key: %v", os.Getenv("AWS_SECRET_ACCESS_KEY"))
 	err = w.InstallPlugin(ctx, "aws", "v5.7.0")
 	if err != nil {
 		fmt.Printf("Failed to install program plugins: %v\n", err)
