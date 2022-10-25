@@ -353,6 +353,8 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 		"cleanup-on-failure":   strconv.FormatBool(cleanup),
 		"pachd-values-content": string(req.ValuesYAMLContent),
 		"infra-json-content":   string(req.InfraJSONContent),
+		"aws-access-key-id":    os.Getenv("AWS_ACCESS_KEY_ID"),
+		"aws-secret-key":       os.Getenv("AWS_SECRET_ACCESS_KEY"),
 
 		// This is an internal GCP ID, not sure if it's exposed at all through pulumi.  I got it by doing a GET call directly against their API here:
 		// https://cloud.google.com/dns/docs/reference/v1/managedZones/get?apix_params=%7B%22project%22%3A%22***REMOVED***%22%2C%22managedZone%22%3A%22test-ci%22%7D
