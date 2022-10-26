@@ -16,16 +16,17 @@ type CreateResponse struct {
 }
 
 type Spec struct {
-	Name             string `schema:"name"`
-	Expiry           string `schema:"expiry"`
-	PachdVersion     string `schema:"pachdVersion"`
-	ConsoleVersion   string `schema:"consoleVersion"`
-	NotebooksVersion string `schema:"notebooksVersion"`
-	HelmVersion      string `schema:"helmVersion"`
-	CleanupOnFail    string `schema:"cleanupOnFail"`
-	DisableNotebooks string `schema:"disableNotebooks"`
-	Backend          string `schema:"backend"`
-	ClusterStack     string `schema:"clusterStack"`
+	Name               string `schema:"name"`
+	Expiry             string `schema:"expiry"`
+	PachdVersion       string `schema:"pachdVersion"`
+	ConsoleVersion     string `schema:"consoleVersion"`
+	NotebooksVersion   string `schema:"notebooksVersion"`
+	MountServerVersion string `schema:"mountServerVersion"`
+	HelmVersion        string `schema:"helmVersion"`
+	CleanupOnFail      string `schema:"cleanupOnFail"`
+	DisableNotebooks   string `schema:"disableNotebooks"`
+	Backend            string `schema:"backend"`
+	ClusterStack       string `schema:"clusterStack"`
 	// This should be an actual file upload
 	ValuesYAML        string //schema:"valuesYaml" This field isn't handled by schema directly
 	ValuesYAMLContent []byte

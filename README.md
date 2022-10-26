@@ -66,12 +66,13 @@ This command is an asynchronous request, and should return quickly. Polling is t
 Workspace creation also takes a bunch of optional parameters:
 ```golang
 type Spec struct {
-	Name             string `schema:"name"`
-	Expiry           string `schema:"expiry"`
-	PachdVersion     string `schema:"pachdVersion"`
-	ConsoleVersion   string `schema:"consoleVersion"`
-	NotebooksVersion string `schema:"notebooksVersion"`
-	HelmVersion      string `schema:"helmVersion"`
+	Name               string `schema:"name"`
+	Expiry             string `schema:"expiry"`
+	PachdVersion       string `schema:"pachdVersion"`
+	ConsoleVersion     string `schema:"consoleVersion"`
+	NotebooksVersion   string `schema:"notebooksVersion"`
+	MountServerVersion string `schema:"mountServerVersion"`
+	HelmVersion        string `schema:"helmVersion"`
   // ValuesYAML should be a path to your file locally
 	ValuesYAML string //schema:"valuesYaml" This one isn't handled by a schema directly
 }

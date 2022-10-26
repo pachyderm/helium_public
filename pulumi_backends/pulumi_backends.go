@@ -306,6 +306,7 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 		"console-version":      req.ConsoleVersion,
 		"pachd-version":        req.PachdVersion,
 		"notebooks-version":    req.NotebooksVersion,
+		"mount-server-version": req.MountServerVersion,
 		"disable-notebooks":    strconv.FormatBool(disableNotebooks),
 		"pachd-values-file":    req.ValuesYAML,
 		"cluster-stack":        req.ClusterStack,
