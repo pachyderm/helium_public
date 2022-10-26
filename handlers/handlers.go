@@ -200,16 +200,8 @@ func AsyncCreationRequest(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		infra := api.NewInfraJson()
-		err := json.Unmarshal([]byte(contentInfra), &infra)
-		if err != nil {
-			w.WriteHeader(500)
-			fmt.Fprintf(w, "failed to unmarshall infraJson: %v", err)
-			log.Errorf("failed to unmarshall infraJson: %v", err)
-			return
-		}
 		spec.InfraJSON = fInfra.Name()
-		spec.InfraJSONContent = infra
+		spec.InfraJSONContent = contentInfra
 	}
 
 	spec.CreatedBy = r.Header.Get(USER_HEADER)
@@ -432,16 +424,8 @@ func UICreation(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		infra := api.NewInfraJson()
-		err := json.Unmarshal([]byte(contentInfra), &infra)
-		if err != nil {
-			w.WriteHeader(500)
-			fmt.Fprintf(w, "failed to unmarshall infraJson: %v", err)
-			log.Errorf("failed to unmarshall infraJson: %v", err)
-			return
-		}
 		spec.InfraJSON = fInfra.Name()
-		spec.InfraJSONContent = infra
+		spec.InfraJSONContent = contentInfra
 	}
 	spec.CreatedBy = r.Header.Get(USER_HEADER)
 

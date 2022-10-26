@@ -75,12 +75,13 @@ func main() {
 	})
 	// TODO: make local dev pretty
 	// make logs look nice for stackdriver
-	log.SetFormatter(&log.JSONFormatter{
+	log.SetFormatter(&log.TextFormatter{
 		FieldMap: log.FieldMap{
 			log.FieldKeyTime:  "time",
 			log.FieldKeyLevel: "severity",
 			log.FieldKeyMsg:   "message",
 		},
+		DisableColors: false,
 		// https://github.com/sirupsen/logrus/pull/162/files
 		TimestampFormat: time.RFC3339Nano,
 	})
@@ -90,6 +91,15 @@ func main() {
 
 	env := os.Getenv("HELIUM_ENV")
 	if env == "PROD" {
+		log.SetFormatter(&log.JSONFormatter{
+			FieldMap: log.FieldMap{
+				log.FieldKeyTime:  "time",
+				log.FieldKeyLevel: "severity",
+				log.FieldKeyMsg:   "message",
+			},
+			// https://github.com/sirupsen/logrus/pull/162/files
+			TimestampFormat: time.RFC3339Nano,
+		})
 		// TODO: // HACK:
 		cmd := exec.Command("gcloud", "auth", "login", "--cred-file=/var/secrets/google/key.json")
 		err := cmd.Run()

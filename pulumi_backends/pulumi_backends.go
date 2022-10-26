@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -15,11 +16,6 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 
 	"github.com/pachyderm/helium/api"
-	"github.com/pachyderm/helium/pulumi_backends/aws_cluster"
-	"github.com/pachyderm/helium/pulumi_backends/gcp_cluster"
-	"github.com/pachyderm/helium/pulumi_backends/gcp_cluster_only"
-	"github.com/pachyderm/helium/pulumi_backends/gcp_namespace"
-	"github.com/pachyderm/helium/pulumi_backends/gcp_namespace_only"
 	"github.com/pachyderm/helium/util"
 
 	log "github.com/sirupsen/logrus"
@@ -30,6 +26,7 @@ func init() {
 	ensurePlugins()
 }
 
+//
 const (
 	//BackendName = "gcp-namespace-pulumi"
 	timeFormat = "2006-01-02"
@@ -248,18 +245,6 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 			return nil, err
 		}
 	}
-	//var expiryDefault int
-	//if expirationNumDays == "" {
-	//	expiryDefault = 1
-	//} else {
-	//	expiryDefault, err = strconv.Atoi(expirationNumDays)
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//}
-	//if expiryDefault == 0 {
-	//	expiryDefault = 1
-	//}
 
 	if expiry.IsZero() {
 		// default to 1 day for expiry
@@ -284,43 +269,75 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 	}
 
 	backend := strings.ToLower(req.Backend)
-	var program pulumi.RunFunc
+	if backend == "" {
+		backend = "gcp_namespace_only"
+	}
 	gcpProjectID := "***REMOVED***"
-	switch backend {
-	// This could just be moved to default, but wanted to be explicit
-	case "gcp_namespace":
-		// TODO: remove debugging function in followup PR
-		log.Debug("pulumi backend gcp namespace explitly specified")
-		program = gcp_namespace.CreatePulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML, req.CreatedBy, cleanup, req.InfraJSONContent, req.ValuesYAMLContent)
-	case "gcp_cluster":
-		// TODO: remove debugging function in followup PR
-		//	gcpProjectID = "feed-dog-353420"
-		program = gcp_cluster.CreatePulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML, req.CreatedBy, cleanup, req.InfraJSONContent, req.ValuesYAMLContent)
-	case "gcp_cluster_only":
-		//project = "helium-gke-clusters"
-		program = gcp_cluster_only.CreatePulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML, req.CreatedBy, req.ClusterStack, cleanup, req.InfraJSONContent, req.ValuesYAMLContent)
-	case "gcp_namespace_only":
-		//project = "helium-gke-clusters"
-		program = gcp_namespace_only.CreatePulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML, req.CreatedBy, req.ClusterStack, cleanup, disableNotebooks, req.InfraJSONContent, req.ValuesYAMLContent)
 
-	case "aws_cluster":
-		program = aws_cluster.CreatePulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML, req.CreatedBy, cleanup, req.InfraJSONContent, req.ValuesYAMLContent)
-		//
-	default:
-		program = gcp_namespace_only.CreatePulumiProgram(stackName, expiryStr, helmchartVersion, req.ConsoleVersion, req.PachdVersion, req.NotebooksVersion, req.ValuesYAML, req.CreatedBy, req.ClusterStack, cleanup, disableNotebooks, req.InfraJSONContent, req.ValuesYAMLContent)
+	var s auto.Stack
+
+	repo := auto.GitRepo{
+		URL:         "https://github.com/pachyderm/poc-pulumi.git",
+		ProjectPath: backend,
+		Branch:      "refs/heads/main",
+		Auth: &auto.GitAuth{
+			PersonalAccessToken: os.Getenv("HELIUM_GITHUB_PERSONAL_TOKEN"),
+		},
 	}
-	s, err := auto.SelectStackInlineSource(ctx, stackName, project, program)
+
+	s, err = auto.UpsertStackRemoteSource(ctx, stackName, repo)
 	if err != nil {
-		if auto.IsSelectStack404Error(err) {
-			s, err = auto.NewStackInlineSource(ctx, stackName, project, program)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			return nil, err
-		}
+		fmt.Printf("failed to create or select stack: %v\n", err)
+		os.Exit(1)
 	}
-	// TODO: copy wildcard into dockerfile
+
+	wwYaml, err := os.ReadFile("workspace-wildcard.yaml")
+	if err != nil {
+		fmt.Printf("failed to load workspace-wildcard.yaml: %v\n", err)
+		os.Exit(1)
+	}
+
+	config := map[string]string{
+		"id":                   stackName,
+		"expiry":               expiryStr,
+		"created-by":           req.CreatedBy,
+		"workspace-wildcard":   string(wwYaml),
+		"helm-chart-version":   helmchartVersion,
+		"console-version":      req.ConsoleVersion,
+		"pachd-version":        req.PachdVersion,
+		"notebooks-version":    req.NotebooksVersion,
+		"disable-notebooks":    strconv.FormatBool(disableNotebooks),
+		"pachd-values-file":    req.ValuesYAML,
+		"cluster-stack":        req.ClusterStack,
+		"cleanup-on-failure":   strconv.FormatBool(cleanup),
+		"pachd-values-content": string(req.ValuesYAMLContent),
+		"infra-json-content":   string(req.InfraJSONContent),
+		"aws-access-key-id":    os.Getenv("AWS_ACCESS_KEY_ID"),
+		"aws-secret-key":       os.Getenv("AWS_SECRET_ACCESS_KEY"),
+
+		// This is an internal GCP ID, not sure if it's exposed at all through pulumi.  I got it by doing a GET call directly against their API here:
+		// https://cloud.google.com/dns/docs/reference/v1/managedZones/get?apix_params=%7B%22project%22%3A%22***REMOVED***%22%2C%22managedZone%22%3A%22test-ci%22%7D
+		"workspace-managed-zone-gcp-id": "***REMOVED***",
+		"workspace-base-url":            "***REMOVED***",
+		"testci-base-url":               "***REMOVED***",
+		"testci-managed-zone-gcp-id":    "***REMOVED***",
+		"client-secret":                 os.Getenv("HELIUM_CLIENT_SECRET"),
+		"client-id":                     os.Getenv("HELIUM_CLIENT_ID"),
+		"auth-domain":                   "https://***REMOVED***.auth0.com/",
+		"auth-subdomain":                "***REMOVED***",
+		"postgres-password":             "***REMOVED***",
+		"postgres-pg-password":          "***REMOVED***",
+		"console-oauthClientSecret":     "***REMOVED***",
+		"pachd-oauthClientSecret":       "***REMOVED***",
+		"pachd-root-token":              "***REMOVED***",
+		"pachd-enterprise-secret":       "***REMOVED***",
+		"pachd-enterprise-license":      "***REMOVED***",
+	}
+
+	for k, v := range config {
+		s.SetConfig(ctx, fmt.Sprintf("helium:%s", k), auto.ConfigValue{Value: v})
+	}
+
 	// TODO: should be able to switch gcp project to
 	s.SetConfig(ctx, "gcp:project", auto.ConfigValue{Value: gcpProjectID})
 	s.SetConfig(ctx, "gcp:zone", auto.ConfigValue{Value: "us-east1-b"})
@@ -400,8 +417,6 @@ func ensurePlugins() {
 		fmt.Printf("Failed to install program plugins: %v\n", err)
 		os.Exit(1)
 	}
-	//fmt.Printf("aws access key id: %v", os.Getenv("AWS_ACCESS_KEY_ID"))
-	//fmt.Printf("aws secret access key: %v", os.Getenv("AWS_SECRET_ACCESS_KEY"))
 	err = w.InstallPlugin(ctx, "aws", "v5.7.0")
 	if err != nil {
 		fmt.Printf("Failed to install program plugins: %v\n", err)
