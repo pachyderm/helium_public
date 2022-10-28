@@ -79,6 +79,7 @@ COPY --from=build /app/templates /templates
 
 ENV PATH $PATH:/usr/local/gcloud/google-cloud-sdk/bin
 ENV PATH "${HOME}/pulumi:$PATH"
+ENV PATH "~/pulumi:$PATH"
 ENV HELIUM_MODE "API"
 ENV PATH /usr/local/go/bin:${PATH}
 
@@ -92,9 +93,9 @@ ENV AWS_DEFAULT_REGION "us-west-2"
 ENV AWS_ACCESS_KEY_ID $AWS_KEY
 ENV AWS_SECRET_ACCESS_KEY $AWS_SECRET
 
-RUN pwd
-RUN ls
-RUN which pulumi
+#RUN pwd
+#RUN ls
+#RUN which pulumi
 
 CMD ["/out"]
 
