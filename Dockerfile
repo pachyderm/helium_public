@@ -12,8 +12,8 @@ RUN apt update -y && apt install -y \
     less \
   && rm -rf /var/lib/apt/lists/*
 
-RUN wget https://get.pulumi.com/releases/sdk/pulumi-v3.31.0-linux-x64.tar.gz
-RUN tar xvf pulumi-v3.31.0-linux-x64.tar.gz
+RUN wget https://get.pulumi.com/releases/sdk/pulumi-v3.44.2-linux-x64.tar.gz
+RUN tar xvf pulumi-v3.44.2-linux-x64.tar.gz
 
 RUN curl https://dl.google.com/dl/cloudsdk/release/google-cloud-sdk.tar.gz > /tmp/google-cloud-sdk.tar.gz
 RUN mkdir -p /usr/local/gcloud \
@@ -88,6 +88,10 @@ ENV AWS_PROFILE "default"
 ENV AWS_DEFAULT_REGION "us-west-2"
 ENV AWS_ACCESS_KEY_ID $AWS_KEY
 ENV AWS_SECRET_ACCESS_KEY $AWS_SECRET
+
+RUN pwd
+RUN ls
+RUN which pulumi
 
 CMD ["/out"]
 
