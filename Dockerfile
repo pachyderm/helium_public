@@ -12,8 +12,7 @@ RUN apt update -y && apt install -y \
     less \
   && rm -rf /var/lib/apt/lists/*
 
-RUN wget https://get.pulumi.com/releases/sdk/pulumi-v3.44.2-linux-x64.tar.gz
-RUN tar xvf pulumi-v3.44.2-linux-x64.tar.gz
+RUN curl -fsSL https://get.pulumi.com | sh
 
 RUN curl https://dl.google.com/dl/cloudsdk/release/google-cloud-sdk.tar.gz > /tmp/google-cloud-sdk.tar.gz
 RUN mkdir -p /usr/local/gcloud \
