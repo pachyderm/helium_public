@@ -1,4 +1,4 @@
-FROM golang:1.19 AS base
+FROM debian:bullseye-slim AS base
 
 RUN apt update -y && apt install -y \
     ca-certificates \
@@ -13,6 +13,9 @@ RUN apt update -y && apt install -y \
   && rm -rf /var/lib/apt/lists/*
 
 RUN curl -fsSL https://get.pulumi.com | sh
+
+RUN wget https://golang.org/dl/go1.19.linux-amd64.tar.gz && \
+    tar -zxvf go1.19.linux-amd64.tar.gz -C /usr/local/
 
 RUN curl https://dl.google.com/dl/cloudsdk/release/google-cloud-sdk.tar.gz > /tmp/google-cloud-sdk.tar.gz
 RUN mkdir -p /usr/local/gcloud \
@@ -77,6 +80,7 @@ COPY --from=build /app/templates /templates
 ENV PATH $PATH:/usr/local/gcloud/google-cloud-sdk/bin
 ENV PATH "${HOME}/pulumi:$PATH"
 ENV HELIUM_MODE "API"
+ENV PATH /usr/local/go/bin:${PATH}
 
 ENV HELIUM_CLIENT_ID $HELIUM_CLIENT_ID
 ENV HELIUM_CLIENT_SECRET $HELIUM_CLIENT_SECRET
