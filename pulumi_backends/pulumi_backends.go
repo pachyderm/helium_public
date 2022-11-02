@@ -100,10 +100,10 @@ func (r *Runner) GetConnectionInfo(i api.ID) (*api.GetConnectionInfoResponse, er
 		var pachdUrl string
 		var pachdAddress string
 		var pachdConnString string
+		if pachdUrl, ok = outs["pachd-lb-url"].Value.(string); !ok {
+			pachdUrl = outs["pachdip"].Value.(map[string]interface{})["ip"].(string)
+		}
 		if pachdConnString, ok = outs["pachd-connection-string"].Value.(string); !ok {
-			if pachdUrl, ok = outs["pachd-lb-url"].Value.(string); !ok {
-				pachdUrl = outs["pachdip"].Value.(map[string]interface{})["ip"].(string)
-			}
 			// TODO: Deprecated. Remove in a future update once no more stacks are using it.
 			pachdAddress = fmt.Sprintf("echo '{\"pachd_address\": \"%v://%v:%v\"}' pachctl config set context %v --overwrite && pachctl config set active-context %v", "grpc", pachdUrl, "30651", outs["k8sNamespace"].Value.(string), outs["k8sNamespace"].Value.(string))
 		} else {
