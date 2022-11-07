@@ -100,8 +100,11 @@ func (r *Runner) GetConnectionInfo(i api.ID) (*api.GetConnectionInfoResponse, er
 		var pachdUrl string
 		var pachdAddress string
 		var pachdConnString string
-		if pachdUrl, ok = outs["pachd-lb-url"].Value.(string); !ok {
-			pachdUrl = outs["pachdip"].Value.(map[string]interface{})["ip"].(string)
+		if pachdUrl, ok = outs["pachd-address"].Value.(string); !ok {
+			if pachdUrl, ok = outs["pachd-lb-url"].Value.(string); !ok {
+				pachdUrl = outs["pachdip"].Value.(map[string]interface{})["ip"].(string)
+			}
+			pachdUrl = "grpc://" + pachdUrl + ":30651"
 		}
 		if pachdConnString, ok = outs["pachd-connection-string"].Value.(string); !ok {
 			// TODO: Deprecated. Remove in a future update once no more stacks are using it.
@@ -143,7 +146,7 @@ func (r *Runner) GetConnectionInfo(i api.ID) (*api.GetConnectionInfoResponse, er
 			NotebooksURL: "https://" + juypterUrlInfo,
 			GCSBucket:    outs["bucket"].Value.(string),
 			Expiry:       outs["helium-expiry"].Value.(string),
-			PachdIp:      "grpc://" + pachdUrl + ":30651",
+			PachdIp:      pachdUrl,
 			Pachctl:      pachdAddress,
 			CreatedBy:    createdBy,
 			Backend:      backendOutput,
