@@ -10,6 +10,7 @@ import (
 
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/optdestroy"
+	"github.com/pulumi/pulumi/sdk/v3/go/auto/optrefresh"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/optup"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/tokens"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/workspace"
@@ -275,6 +276,7 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 	if backend == "" {
 		backend = "gcp_namespace_only"
 	}
+
 	gcpProjectID := "***REMOVED***"
 
 	var s auto.Stack
@@ -365,7 +367,7 @@ func (r *Runner) Destroy(i api.ID) error {
 	ctx := context.Background()
 	stackName := string(i)
 	// program doesn't matter for destroying a stack
-	program := createEmptyPulumiProgram()
+	var program pulumi.RunFunc = nil
 
 	s, err := auto.SelectStackInlineSource(ctx, stackName, project, program)
 	if err != nil {
@@ -379,10 +381,21 @@ func (r *Runner) Destroy(i api.ID) error {
 	//s.SetConfig(ctx, "gcp:project", auto.ConfigValue{Value: "***REMOVED***"})
 	//s.SetConfig(ctx, "gcp:zone", auto.ConfigValue{Value: "us-east1-b"})
 
+	// Doing a refresh with PULUMI_K8S_DELETE_UNREACHABLE="true" set will allow
+	// pulumi to automatically remove stack resources when a cluster is unreachable.
+	// This will potentially leak resources on transient GKE connection
+	// issues, but for our use case, the alternaitve is worse, in knowingly leaving around
+	// expired resources because stacks can't cleanly delete.
+	_, err = s.Refresh(ctx, optrefresh.ProgressStreams(util.NewLogWriter(log.WithFields(log.Fields{"pulumi_op": "refresh", "stream": "stdout"}))))
+	if err != nil {
+		return err
+	}
+
 	// destroy the stack
 	// we'll write all of the logs to stdout so we can watch requests get processed
 	//	_, err = s.Destroy(ctx, optdestroy.ProgressStreams(os.Stdout))
-	_, err = s.Destroy(ctx, optdestroy.ProgressStreams(util.NewLogWriter(log.WithFields(log.Fields{"pulumi_op": "create", "stream": "stdout"}))))
+
+	_, err = s.Destroy(ctx, optdestroy.ProgressStreams(util.NewLogWriter(log.WithFields(log.Fields{"pulumi_op": "destroy", "stream": "stdout"}))))
 	if err != nil {
 		return err
 	}
@@ -395,12 +408,6 @@ func (r *Runner) Destroy(i api.ID) error {
 	}
 	log.Infof("deleted all associated stack information with: %s", stackName)
 	return nil
-}
-
-func createEmptyPulumiProgram() pulumi.RunFunc {
-	return func(ctx *pulumi.Context) error {
-		return nil
-	}
 }
 
 // TODO: Document need to add plugins for other providers
