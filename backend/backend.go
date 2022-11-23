@@ -91,9 +91,10 @@ func RunDeletionController(ctx context.Context, br DeletionController) error {
 			if err != nil {
 				log.Errorf("deletion controller error destroying: %v", err)
 			}
+			time.Sleep(time.Second * 10)
 			// TODO: This is a bit of a hack for feeddog. Will cause a circular import if anything in pulumi_backends needs this package
-			time.Sleep(time.Minute * 5)
 			if v == "nightly-cluster" {
+				time.Sleep(time.Minute * 5)
 				spec := &api.Spec{
 					Name:    "nightly-cluster",
 					Backend: "gcp_cluster_only",
