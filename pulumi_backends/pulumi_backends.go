@@ -41,11 +41,7 @@ var (
 	auth0Domain       = "https://***REMOVED***.auth0.com/"
 )
 
-type Runner struct {
-	//Name backend.Name
-}
-
-func (r *Runner) GetConnectionInfo(i api.ID) (*api.GetConnectionInfoResponse, error) {
+func GetConnectionInfo(i api.ID) (*api.GetConnectionInfoResponse, error) {
 	log.SetReportCaller(true)
 	log.SetLevel(log.DebugLevel)
 	log.WithField("backend", "pulumi").Debugf("Get Info")
@@ -163,7 +159,7 @@ func (r *Runner) GetConnectionInfo(i api.ID) (*api.GetConnectionInfoResponse, er
 	}, nil
 }
 
-func (r *Runner) List() (*api.ListResponse, error) {
+func List() (*api.ListResponse, error) {
 	log.SetReportCaller(true)
 	log.SetLevel(log.DebugLevel)
 	log.WithField("backend", "pulumi").Debugf("list")
@@ -189,7 +185,7 @@ func (r *Runner) List() (*api.ListResponse, error) {
 	return &api.ListResponse{IDs: ids}, nil
 }
 
-func (r *Runner) IsExpired(i api.ID) (bool, error) {
+func IsExpired(i api.ID) (bool, error) {
 	log.SetReportCaller(true)
 	log.SetLevel(log.DebugLevel)
 	log.WithField("backend", "pulumi").Debugf("isexpired")
@@ -233,7 +229,7 @@ func (r *Runner) IsExpired(i api.ID) (bool, error) {
 	return false, nil
 }
 
-func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
+func Create(req *api.Spec) (*api.CreateResponse, error) {
 
 	ctx := context.Background()
 	log.WithField("backend", "pulumi").Debugf("create")
@@ -262,11 +258,6 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 	}
 	expiryStr := expiry.Format(timeFormat)
 
-	cleanup := true
-	if req.CleanupOnFail == "False" {
-		cleanup = false
-	}
-
 	var disableNotebooks bool
 	if req.DisableNotebooks == "True" {
 		disableNotebooks = true
@@ -284,8 +275,8 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 	repo := auto.GitRepo{
 		URL:         "https://github.com/pachyderm/poc-pulumi.git",
 		ProjectPath: backend,
-		//	Branch:      "refs/remotes/origin/aws-refactor",
-		Branch: "refs/heads/main",
+		Branch:      "refs/remotes/origin/common",
+		//Branch: "refs/heads/main",
 		Auth: &auto.GitAuth{
 			PersonalAccessToken: os.Getenv("HELIUM_GITHUB_PERSONAL_TOKEN"),
 		},
@@ -316,7 +307,8 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 		"disable-notebooks":    strconv.FormatBool(disableNotebooks),
 		"pachd-values-file":    req.ValuesYAML,
 		"cluster-stack":        req.ClusterStack,
-		"cleanup-on-failure":   strconv.FormatBool(cleanup),
+		// TODO: deprecated
+		"cleanup-on-failure":   "true",
 		"pachd-values-content": string(req.ValuesYAMLContent),
 		"infra-json-content":   string(req.InfraJSONContent),
 		"aws-access-key-id":    os.Getenv("AWS_ACCESS_KEY_ID"),
@@ -360,7 +352,7 @@ func (r *Runner) Create(req *api.Spec) (*api.CreateResponse, error) {
 	return &api.CreateResponse{api.ID(stackName)}, nil
 }
 
-func (r *Runner) Destroy(i api.ID) error {
+func Destroy(i api.ID) error {
 	log.SetReportCaller(true)
 	log.SetLevel(log.DebugLevel)
 	log.WithField("backend", "pulumi").Debugf("destroy")

@@ -94,9 +94,9 @@ func TestAPI(t *testing.T) {
 				if got := err; !errors.Is(got, want) {
 					t.Errorf("error 'Is' not the prototype:\n  got: %#v\n want: %#v", got, want)
 				}
-				if got := err; !errors.As(got, &want) {
-					t.Errorf("error cannot be cast:\n  got: %#v\n want: %#v", got, want)
-				}
+				//if got := err; !errors.As(got, &want) {
+				//	t.Errorf("error cannot be cast:\n  got: %#v\n want: %#v", got, want)
+				//}
 			}
 
 			// Check that we can cast the wrapped error to a TracedError.

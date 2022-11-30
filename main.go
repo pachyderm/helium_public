@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -13,9 +12,8 @@ import (
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/pachyderm/helium/backend"
+	"github.com/pachyderm/helium/controlplane"
 	"github.com/pachyderm/helium/handlers"
-	"github.com/pachyderm/helium/pulumi_backends"
 	psentry "github.com/pachyderm/helium/sentry"
 )
 
@@ -210,9 +208,7 @@ func RunAPI() {
 
 func RunControlplane() {
 	for {
-		ctx := context.Background()
-		gnp := &pulumi_backends.Runner{}
-		err := backend.RunDeletionController(ctx, gnp)
+		err := controlplane.RunDeletionController()
 		if err != nil {
 			log.Errorf("deletion controller: %v", err)
 		}
