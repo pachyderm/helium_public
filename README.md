@@ -114,7 +114,7 @@ GPUs and autoprovisioning - It works the same way as it did on Hub. If you corre
 
 Pachd or the other components of the helm chart can have their resource requests and limits set accordingly, and the cluster will autoprovision node pools if possible that meet the requirements of the requests. Limits do not cause autoprovisioning, but are important to specify for reproducible experimentation.
 
-### Loadtesting 
+### Loadtesting
 
 Additional Nodepools are defined here: https://github.com/pachyderm/infrastructure/blob/master/ci/main.go
 
@@ -202,3 +202,37 @@ Testing - it's recommend to call `go test ./... -short` for unit tests, and an e
 ## Known Issues:
 
 - The tests are broken, but shouldn't affect anything other than controllers
+
+
+## Renewing workspace wildcard cert
+
+As of 12/02/2022 - this is a manual process.
+
+
+```
+sudo certbot certonly --manual -v \
+ --preferred-challenges=dns \
+ --email buildbot@***REMOVED*** \
+ --server https://acme-v02.api.letsencrypt.org/directory \
+ --agree-tos \
+ --manual-public-ip-logging-ok \
+ -d \*.***REMOVED***
+```
+
+Go to GCP cloud console and update the record in ***REMOVED*** zone, it lives in the pulumi-ci project.  
+
+Test that it's updated: https://toolbox.googleapps.com/apps/dig/#TXT/_acme-challenge.***REMOVED***.
+
+Then hit enter on the certbot command.
+
+```
+sudo kubectl create secret tls workspace-wildcard --cert /etc/letsencrypt/live/***REMOVED***/fullchain.pem --key /etc/letsencrypt/live/***REMOVED***/privkey.pem --dry-run=client --output=yaml > workspace-wildcard.yaml
+```
+
+make sure to add the following annotation:
+
+```
+metadata:
+  annotations:
+    replicator.v1.mittwald.de/replicate-to-matching: needs-workspace-tls=true
+```
