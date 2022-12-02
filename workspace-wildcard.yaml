@@ -5,6 +5,7 @@ data:
 kind: Secret
 metadata:
   annotations:
+    "pulumi.com/patchForce": "true"
     replicator.v1.mittwald.de/replicate-to-matching: needs-workspace-tls=true
   creationTimestamp: null
   name: workspace-wildcard
