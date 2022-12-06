@@ -236,3 +236,12 @@ metadata:
   annotations:
     replicator.v1.mittwald.de/replicate-to-matching: needs-workspace-tls=true
 ```
+
+
+## Updating an underlying GKE cluster (ie for console preview environments)
+
+Console preview environments currently live in their own GKE cluster: console-preview-cluster, in the pulumi-ci GCP Project.  If needing to update or recreate it for any reason, it's important to set the backend field to gcp_cluster_only, and set the expiry.  The following curl command was used to generate the cluster previously:
+
+```
+curl -X POST -H "Authorization: Bearer ***REMOVED***" -F name=console-preview-cluster -F expiry=2023-02-22  -F backend=gcp_cluster_only https://helium.***REMOVED***/v1/api/workspace
+```
