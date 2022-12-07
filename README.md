@@ -126,6 +126,7 @@ Pachd or the other components of the helm chart can have their resource requests
 
 Helium is capable of running many different pulumi programs, which generally live https://github.com/pachyderm/poc-pulumi. Each directory there that contains a pulumi.yaml file is a separate pulumi program, which helium refers to as a backend. Some of those backends are meant to be used inconjunction with one another.  Helium generally spins up standalone clusters with the gcp_cluster_only backend, which can then be pointed to with the -clusterStack parameter to deploy the regular gcp_namespace_only backends on top of it. Same principle also applies to some of the aws backends as well.
 
+
 ### Loadtesting
 
 Additional Nodepools are defined here: https://github.com/pachyderm/infrastructure/blob/master/ci/main.go
@@ -213,3 +214,46 @@ Testing - it's recommend to call `go test ./... -short` for unit tests, and an e
 ## Known Issues:
 
 - The tests are broken, but shouldn't affect anything other than controllers
+
+
+## Renewing workspace wildcard cert
+
+As of 12/02/2022 - this is a manual process.
+
+
+```
+sudo certbot certonly --manual -v \
+ --preferred-challenges=dns \
+ --email buildbot@***REMOVED*** \
+ --server https://acme-v02.api.letsencrypt.org/directory \
+ --agree-tos \
+ --manual-public-ip-logging-ok \
+ -d \*.***REMOVED***
+```
+
+Go to GCP cloud console and update the record in ***REMOVED*** zone, it lives in the pulumi-ci project.  
+
+Test that it's updated: https://toolbox.googleapps.com/apps/dig/#TXT/_acme-challenge.***REMOVED***.
+
+Then hit enter on the certbot command.
+
+```
+sudo kubectl create secret tls workspace-wildcard --cert /etc/letsencrypt/live/***REMOVED***/fullchain.pem --key /etc/letsencrypt/live/***REMOVED***/privkey.pem --dry-run=client --output=yaml > workspace-wildcard.yaml
+```
+
+make sure to add the following annotation:
+
+```
+metadata:
+  annotations:
+    replicator.v1.mittwald.de/replicate-to-matching: needs-workspace-tls=true
+```
+
+
+## Updating an underlying GKE cluster (ie for console preview environments)
+
+Console preview environments currently live in their own GKE cluster: console-preview-cluster, in the pulumi-ci GCP Project.  If needing to update or recreate it for any reason, it's important to set the backend field to gcp_cluster_only, and set the expiry.  The following curl command was used to generate the cluster previously:
+
+```
+curl -X POST -H "Authorization: Bearer ***REMOVED***" -F name=console-preview-cluster -F expiry=2023-02-22  -F backend=gcp_cluster_only https://helium.***REMOVED***/v1/api/workspace
+```
