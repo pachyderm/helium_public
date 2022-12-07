@@ -23,7 +23,6 @@ type Spec struct {
 	NotebooksVersion   string `schema:"notebooksVersion"`
 	MountServerVersion string `schema:"mountServerVersion"`
 	HelmVersion        string `schema:"helmVersion"`
-	CleanupOnFail      string `schema:"cleanupOnFail"`
 	DisableNotebooks   string `schema:"disableNotebooks"`
 	Backend            string `schema:"backend"`
 	ClusterStack       string `schema:"clusterStack"`
@@ -31,8 +30,7 @@ type Spec struct {
 	ValuesYAML        string //schema:"valuesYaml" This field isn't handled by schema directly
 	ValuesYAMLContent []byte
 	InfraJSON         string //schema:"infraJson" This field isn't handled by schema directly
-	// TODO: A bit of a hack
-	InfraJSONContent []byte
+	InfraJSONContent  []byte
 
 	// This is populated automatically by a header
 	CreatedBy string

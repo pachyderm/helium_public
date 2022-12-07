@@ -1,6 +1,6 @@
 # Helium
 
-A standardized interface for provisioning pachyderm instances. The primary backend leverages pulumi to create new workspaces in a single cluster in GCP, sharding by namespace. These are closer to real "production" pachyderm instances, as Console, Notebooks, Auth, TLS, DNS, Ingress, GPUs, and Autoscaling is all correctly wired up. Helium itself is stateless, pushing that concern onto the responsibility of it's backends (currently, all of which are pulumi based).
+A standardized interface for provisioning pachyderm instances, on both AWS and GCP. Helium provides a UI and API at https://helium.***REMOVED***, as well as a controlplane that handles automatically cleaning up workspaces when they have expired.  Helium runs pulumi programs that are defined at https://github.com/pachyderm/poc-pulumi. In the default use case, helium spins up workspaces in a single cluster in GCP, each isolated in it's own namespace. These are closer to real "production" pachyderm instances, as Console, Notebooks, Auth0, TLS, DNS, Ingress, GPUs, and Autoscaling is all correctly wired up. Helium itself is stateless, pushing that concern onto the responsibility of pulumi.
 
 By default all workspaces are deleted at midnight of the day they are created. However, expiration is configurable for up to 90 days. The DeletionController which runs as part of the controlplane takes care of automatically deleting those environments which are expired.  
 
@@ -72,8 +72,16 @@ type Spec struct {
 	NotebooksVersion   string `schema:"notebooksVersion"`
 	MountServerVersion string `schema:"mountServerVersion"`
 	HelmVersion        string `schema:"helmVersion"`
-  // ValuesYAML should be a path to your file locally
-	ValuesYAML string //schema:"valuesYaml" This one isn't handled by a schema directly
+	DisableNotebooks   string `schema:"disableNotebooks"`
+	Backend            string `schema:"backend"`
+	ClusterStack       string `schema:"clusterStack"`
+	// This should be an actual file upload
+	ValuesYAML        string //schema:"valuesYaml" This field isn't handled by schema directly
+	ValuesYAMLContent []byte
+	InfraJSON         string //schema:"infraJson" This field isn't handled by schema directly
+	InfraJSONContent  []byte
+	// This is populated automatically by a header
+	CreatedBy string
 }
 ```
 None of the fields are required. ValuesYAML should be a path to your values.yaml file locally. However, it doesn't take precedence over the values Helium supplies, which could be a source of confusion. Future work is planned to eliminate this. These params can be used in a request like so:
@@ -106,13 +114,18 @@ done
 
 ## Advanced Usage
 
-Helium allows you to specify your own values.yaml file.  However, values defined in pulumi.Values struct take precedence.  Future work needs to be done to move all values that aren't dynamic to values.yml files, which can then be leveraged by pulumi, instead of being defined as a pulumi.Map.
+Helium allows you to specify your own values.yaml file. Your values will take precedence, so it's possible to clobber a value helium needs to provision a working environment.
 
 It's less supported, but calling the create api or workspace form with an already existing workspace name will allow you to update that workspace. This could be useful for updating the console image for instance. However, this code pathway is less exercised. If straying from the happy path of mutating image tags, things might not work as expected.  
 
 GPUs and autoprovisioning - It works the same way as it did on Hub. If you correctly specify your pipelines, you can let the workers use GPUs.
 
 Pachd or the other components of the helm chart can have their resource requests and limits set accordingly, and the cluster will autoprovision node pools if possible that meet the requirements of the requests. Limits do not cause autoprovisioning, but are important to specify for reproducible experimentation.
+
+### Changing the Backend
+
+Helium is capable of running many different pulumi programs, which generally live https://github.com/pachyderm/poc-pulumi. Each directory there that contains a pulumi.yaml file is a separate pulumi program, which helium refers to as a backend. Some of those backends are meant to be used inconjunction with one another.  Helium generally spins up standalone clusters with the gcp_cluster_only backend, which can then be pointed to with the -clusterStack parameter to deploy the regular gcp_namespace_only backends on top of it. Same principle also applies to some of the aws backends as well.
+
 
 ### Loadtesting
 
@@ -144,8 +157,6 @@ Generally the easiest thing to try is just creating a workspace again.
 
 If that fails, try creating a workspace with no parameters to ensure that it's not an issue specific to your parameters.
 
-If it is your parameters, setting `CleanupOnFail` to `"False"` will allow you to connect to the Kubernetes cluster to get more information on why it's failing. Otherwise, a failed workspace will be deleted automatically before you are able to troubleshoot.
-
 Another resource would be the slack channel `#helium-sentry` as that'd show you any errors from Helium Code.  Logs from Helium itself are also recorded in stackdriver.  
 
 ## Infrastructure
@@ -156,7 +167,8 @@ Another resource would be the slack channel `#helium-sentry` as that'd show you 
 
 ***REMOVED***
 
-Pulumi is managing a shared GKE cluster in the pulumi-ci GCP project. That GKE cluster is currently allowed to auto provision up to 50 CPU and 200GB Memory, and 4x of every currently support GPU on GCP. It's defined here: `https://github.com/pachyderm/infrastructure/tree/master/ci`, notably we're installing the GPU daemonset for autoprovisioning.
+Helium creates and manages the standalone clusters that are then used to create workspaces on top of.
+For GCP, these are in the pulumi-ci project. The gcp_cluster_only and aws_cluster_only backends should provide the necessary details.
 
 We're using the pulumi SaaS platform to manage state and concurrency control on any given stack, for the default pulumi_backends/gcp_namespace backend.
 
@@ -181,9 +193,9 @@ The deletionController automatically queries every environment to check it's exp
 
 ## Development Overview
 
-TODO: Document adding an additional backend.
+To run the api locally:  `HELIUM_MODE=API HELIUM_CLIENT_SECRET="XXXXXXXXXX" HELIUM_CLIENT_ID="XXXXXXXXX" HELIUM_GITHUB_PERSONAL_TOKEN="XXXXXXXXXX" AWS_ACCESS_KEY_ID="XXXXXXXXXX" AWS_SECRET_ACCESS_KEY="XXXXXXXXXXXX" PULUMI_K8S_DELETE_UNREACHABLE="true" go run main.go` and then you are able to curl the API at http://localhost:2323
 
-pulumi_backends - Most of the heavy lifting is done in this code here, as it's the actual pulumi backend we're leveraging for our state.
+pulumi_backends - CRUD operations with the pulumi automation API.
 
 UI is provided by the templates in the /templates directory. They were heavily inspired by the Enterprise Keygen templates, with the additional of Tailwind CSS. Normal go templating is used to process the templates, the relevant handlers are prefixed with UI.
 

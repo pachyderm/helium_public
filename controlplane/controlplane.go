@@ -1,7 +1,6 @@
-package backend
+package controlplane
 
 import (
-	"context"
 	"os"
 	"strings"
 	"time"
@@ -19,51 +18,10 @@ const (
 
 var deletionControllerMode string = os.Getenv("HELIUM_CONTROLPLANE_DELETE_ALL")
 
-type Name string
-
-type Controller func(context.Context) error
-
-type Lister interface {
-	// TODO: Maybe should take a list.request
-	List() (*api.ListResponse, error)
-}
-type GetConnInfoer interface {
-	GetConnectionInfo(api.ID) (*api.GetConnectionInfoResponse, error)
-}
-type Destroyer interface {
-	Destroy(api.ID) error
-}
-type Creator interface {
-	Create(*api.Spec) (*api.CreateResponse, error)
-}
-
-type Backend interface {
-	Lister
-	GetConnInfoer
-	Creator
-	Destroyer
-	// TODO: Expiry probably doesn't need to live in the API
-	IsExpirer
-}
-
-// Register() *api.Backend
-//	RestoreSeedData(string) error
-
-type IsExpirer interface {
-	IsExpired(api.ID) (bool, error)
-}
-
-type DeletionController interface {
-	Lister
-	IsExpirer
-	Destroyer
-	//	DeletionController()
-}
-
-func RunDeletionController(ctx context.Context, br DeletionController) error {
+func RunDeletionController() error {
 	//For each Pach, check Expiry. If true, call Delete
 
-	id, err := br.List()
+	id, err := pulumi_backends.List()
 	if err != nil {
 		return err
 	}
@@ -72,11 +30,11 @@ func RunDeletionController(ctx context.Context, br DeletionController) error {
 		if v == "nightly-cluster" {
 			nightlyPresent = true
 		}
-		b, err := br.IsExpired(v)
+		b, err := pulumi_backends.IsExpired(v)
 		if err != nil {
 			if strings.Contains(err.Error(), "expected stack output 'helium-expiry' not found for stack") {
 				log.Debugf("deletion controller destroying because expiry not found: %v", v)
-				err := br.Destroy(v)
+				err := pulumi_backends.Destroy(v)
 				if err != nil {
 					log.Errorf("deletion controller error destroying: %v", err)
 				}
@@ -87,7 +45,7 @@ func RunDeletionController(ctx context.Context, br DeletionController) error {
 		}
 		if b || deletionControllerMode == "True" {
 			log.Debugf("deletion controller destroying: %v", v)
-			err := br.Destroy(v)
+			err := pulumi_backends.Destroy(v)
 			if err != nil {
 				log.Errorf("deletion controller error destroying: %v", err)
 			}
@@ -99,8 +57,7 @@ func RunDeletionController(ctx context.Context, br DeletionController) error {
 					Name:    "nightly-cluster",
 					Backend: "gcp_cluster_only",
 				}
-				gnp := &pulumi_backends.Runner{}
-				_, err = gnp.Create(spec)
+				_, err = pulumi_backends.Create(spec)
 				if err != nil {
 					log.Errorf("create handler: %v", err)
 				}
@@ -112,8 +69,7 @@ func RunDeletionController(ctx context.Context, br DeletionController) error {
 			Name:    "nightly-cluster",
 			Backend: "gcp_cluster_only",
 		}
-		gnp := &pulumi_backends.Runner{}
-		_, err = gnp.Create(spec)
+		_, err = pulumi_backends.Create(spec)
 		if err != nil {
 			log.Errorf("create handler: %v", err)
 		}

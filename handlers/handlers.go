@@ -76,10 +76,9 @@ func HealthCheck(w http.ResponseWriter, r *http.Request) {
 }
 
 func ListRequest(w http.ResponseWriter, r *http.Request) {
-	gnp := &pulumi_backends.Runner{}
 	w.Header().Set("Content-Type", "application/json")
 	var res *api.ListResponse
-	res, err := gnp.List()
+	res, err := pulumi_backends.List()
 	if err != nil {
 		w.WriteHeader(500)
 		fmt.Fprintf(w, "error listing stack")
@@ -90,12 +89,11 @@ func ListRequest(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetConnInfoRequest(w http.ResponseWriter, r *http.Request) {
-	gnp := &pulumi_backends.Runner{}
 	w.Header().Set("Content-Type", "application/json")
 	vars := mux.Vars(r)
 	id := api.ID(vars["workspaceId"])
 	var res *api.GetConnectionInfoResponse
-	res, err := gnp.GetConnectionInfo(id)
+	res, err := pulumi_backends.GetConnectionInfo(id)
 	if err != nil {
 		w.WriteHeader(500)
 		fmt.Fprintf(w, "error getting connection info for stack")
@@ -107,8 +105,6 @@ func GetConnInfoRequest(w http.ResponseWriter, r *http.Request) {
 }
 
 func AsyncCreationRequest(w http.ResponseWriter, r *http.Request) {
-	gnp := &pulumi_backends.Runner{}
-
 	log.SetReportCaller(true)
 	log.SetLevel(log.DebugLevel)
 
@@ -228,7 +224,6 @@ func AsyncCreationRequest(w http.ResponseWriter, r *http.Request) {
 		"notebooksVersion":   spec.NotebooksVersion,
 		"mountServerVersion": spec.MountServerVersion,
 		"helmVersion":        spec.HelmVersion,
-		"cleanupOnFail":      spec.CleanupOnFail,
 		"disableNotebooks":   spec.DisableNotebooks,
 		"clusterStack":       spec.ClusterStack,
 		"valuesYAML":         spec.ValuesYAML,
@@ -240,7 +235,7 @@ func AsyncCreationRequest(w http.ResponseWriter, r *http.Request) {
 
 	// TODO: This is a bit of a hack
 	go func(spec api.Spec, f *os.File, fInfra *os.File) {
-		_, err = gnp.Create(&spec)
+		_, err = pulumi_backends.Create(&spec)
 		if err != nil {
 			log.Errorf("create handler: %v", err)
 			return
@@ -257,12 +252,11 @@ func AsyncCreationRequest(w http.ResponseWriter, r *http.Request) {
 }
 
 func IsExpiredRequest(w http.ResponseWriter, r *http.Request) {
-	gnp := &pulumi_backends.Runner{}
 	w.Header().Set("Content-Type", "application/json")
 	vars := mux.Vars(r)
 	id := api.ID(vars["workspaceId"])
 	var val bool
-	val, err := gnp.IsExpired(id)
+	val, err := pulumi_backends.IsExpired(id)
 	if err != nil {
 		w.WriteHeader(500)
 		fmt.Fprintf(w, "error getting expiry for stack")
@@ -275,12 +269,11 @@ func IsExpiredRequest(w http.ResponseWriter, r *http.Request) {
 
 // TODO: pick delete or destroy, not both
 func DeleteRequest(w http.ResponseWriter, r *http.Request) {
-	gnp := &pulumi_backends.Runner{}
 	w.Header().Set("Content-Type", "application/json")
 	vars := mux.Vars(r)
 	id := api.ID(vars["workspaceId"])
 
-	err := gnp.Destroy(id)
+	err := pulumi_backends.Destroy(id)
 	if err != nil {
 		w.WriteHeader(500)
 		fmt.Fprintf(w, "error destroying stack")
@@ -291,9 +284,8 @@ func DeleteRequest(w http.ResponseWriter, r *http.Request) {
 }
 
 func UIListWorkspace(w http.ResponseWriter, r *http.Request) {
-	gnp := &pulumi_backends.Runner{}
 	var res *api.ListResponse
-	res, err := gnp.List()
+	res, err := pulumi_backends.List()
 	if err != nil {
 		w.WriteHeader(500)
 		fmt.Fprintf(w, "error listing stacks")
@@ -315,11 +307,10 @@ func UIRootHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func UIGetWorkspace(w http.ResponseWriter, r *http.Request) {
-	gnp := &pulumi_backends.Runner{}
 	vars := mux.Vars(r)
 	id := api.ID(vars["workspaceId"])
 	var res *api.GetConnectionInfoResponse
-	res, err := gnp.GetConnectionInfo(id)
+	res, err := pulumi_backends.GetConnectionInfo(id)
 	if err != nil {
 		w.WriteHeader(500)
 		fmt.Fprintf(w, "error getting connection info for stack")
@@ -334,8 +325,6 @@ func UIGetWorkspace(w http.ResponseWriter, r *http.Request) {
 }
 
 func UICreation(w http.ResponseWriter, r *http.Request) {
-	gnp := &pulumi_backends.Runner{}
-
 	log.SetReportCaller(true)
 	log.SetLevel(log.DebugLevel)
 
@@ -452,7 +441,6 @@ func UICreation(w http.ResponseWriter, r *http.Request) {
 		"notebooksVersion":   spec.NotebooksVersion,
 		"mountServerVersion": spec.MountServerVersion,
 		"helmVersion":        spec.HelmVersion,
-		"cleanupOnFail":      spec.CleanupOnFail,
 		"disableNotebooks":   spec.DisableNotebooks,
 		"clusterStack":       spec.ClusterStack,
 		"valuesYAML":         spec.ValuesYAML,
@@ -464,7 +452,7 @@ func UICreation(w http.ResponseWriter, r *http.Request) {
 
 	// TODO: This is a bit of a hack
 	go func(spec api.Spec, f *os.File, fInfra *os.File) {
-		_, err = gnp.Create(&spec)
+		_, err = pulumi_backends.Create(&spec)
 		if err != nil {
 			log.Errorf("create handler: %v", err)
 			return
