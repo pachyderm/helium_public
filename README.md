@@ -1,5 +1,8 @@
 # Helium
 
+## NOTE: THIS PUBLIC REPO IS FOR EXPERIMENTAL USE ONLY
+
+
 A standardized interface for provisioning pachyderm instances, on both AWS and GCP. Helium provides a UI and API at https://helium.***REMOVED***, as well as a controlplane that handles automatically cleaning up workspaces when they have expired.  Helium runs pulumi programs that are defined at https://github.com/pachyderm/poc-pulumi. In the default use case, helium spins up workspaces in a single cluster in GCP, each isolated in it's own namespace. These are closer to real "production" pachyderm instances, as Console, Notebooks, Auth0, TLS, DNS, Ingress, GPUs, and Autoscaling is all correctly wired up. Helium itself is stateless, pushing that concern onto the responsibility of pulumi.
 
 By default all workspaces are deleted at midnight of the day they are created. However, expiration is configurable for up to 90 days. The DeletionController which runs as part of the controlplane takes care of automatically deleting those environments which are expired.  
